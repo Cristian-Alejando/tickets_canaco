@@ -1,0 +1,54 @@
+===================================================
+ INSTRUCCIONES PARA RECREAR LA BASE DE DATOS (CANACO)
+===================================================
+
+1. Crear la Base de Datos
+   Nombre: tickets_canaco
+
+2. Crear Tablas Principales (Ejecutar en Query Tool)
+
+-- Tabla de Usuarios
+CREATE TABLE usuarios (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    rol VARCHAR(50) NOT NULL DEFAULT 'usuario' 
+);
+
+-- Tabla de Tickets (Versión Completa)
+CREATE TABLE tickets (
+    id SERIAL PRIMARY KEY,
+    titulo VARCHAR(200) NOT NULL,
+    descripcion TEXT,
+    estatus VARCHAR(50) DEFAULT 'abierto',
+    prioridad VARCHAR(50) DEFAULT 'media',
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    -- Columnas agregadas posteriormente:
+    ubicacion VARCHAR(150),
+    categoria VARCHAR(100),
+    comentarios TEXT,
+    fecha_actualizacion TIMESTAMP,
+    fecha_cierre TIMESTAMP,
+    votos INTEGER DEFAULT 0
+);
+
+===================================================
+3. Usuarios Iniciales (Insertar manualmente)
+===================================================
+
+-- Usuario Administrador
+INSERT INTO usuarios (nombre, email, password, rol)
+VALUES ('Administrador', 'admin@canaco.com', 'admin123', 'admin');
+
+-- Usuario Empleado
+INSERT INTO usuarios (nombre, email, password, rol)
+VALUES ('Juan Pérez', 'juan@canaco.com', '123456', 'usuario');
+
+===================================================
+ NOTAS IMPORTANTES:
+===================================================
+- El backend usa el puerto 3000.
+- El frontend usa Vite (npm run dev) o Electron (npm start).
+- La conexión a la BD está en backend/db.js o server.js.
