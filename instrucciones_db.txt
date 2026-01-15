@@ -5,50 +5,58 @@
 1. Crear la Base de Datos
    Nombre: tickets_canaco
 
-2. Crear Tablas Principales (Ejecutar en Query Tool)
+2. Crear Tablas Principales (Ejecutar en orden en Query Tool)
 
--- Tabla de Usuarios
+-- A) Tabla de Usuarios
 CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    rol VARCHAR(50) NOT NULL DEFAULT 'usuario' 
+    rol VARCHAR(50) DEFAULT 'empleado' 
 );
 
--- Tabla de Tickets (Versión Completa)
+-- B) Tabla de Tickets (Esquema Completo)
 CREATE TABLE tickets (
     id SERIAL PRIMARY KEY,
     titulo VARCHAR(200) NOT NULL,
     descripcion TEXT,
-    estatus VARCHAR(50) DEFAULT 'abierto',
-    prioridad VARCHAR(50) DEFAULT 'media',
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-    -- Columnas agregadas posteriormente:
     ubicacion VARCHAR(150),
     categoria VARCHAR(100),
+    estatus VARCHAR(50) DEFAULT 'abierto',
+    prioridad VARCHAR(50) DEFAULT 'media',
+    votos INTEGER DEFAULT 0,
     comentarios TEXT,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion TIMESTAMP,
     fecha_cierre TIMESTAMP,
-    votos INTEGER DEFAULT 0
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL
+);
+
+-- C) Tabla de Historial de Votos (NUEVA - Para voto único)
+CREATE TABLE votos_registro (
+    id SERIAL PRIMARY KEY,
+    ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+    UNIQUE(ticket_id, usuario_id)
 );
 
 ===================================================
 3. Usuarios Iniciales (Insertar manualmente)
 ===================================================
 
--- Usuario Administrador
+-- Usuario Administrador (Rol: admin)
 INSERT INTO usuarios (nombre, email, password, rol)
 VALUES ('Administrador', 'admin@canaco.com', 'admin123', 'admin');
 
--- Usuario Empleado
+-- Usuario Empleado de Prueba (Rol: empleado)
 INSERT INTO usuarios (nombre, email, password, rol)
-VALUES ('Juan Pérez', 'juan@canaco.com', '123456', 'usuario');
+VALUES ('Juan Pérez', 'juan@canaco.com', '123456', 'empleado');
 
 ===================================================
- NOTAS IMPORTANTES:
+ NOTAS TÉCNICAS:
 ===================================================
-- El backend usa el puerto 3000.
-- El frontend usa Vite (npm run dev) o Electron (npm start).
-- La conexión a la BD está en backend/db.js o server.js.
+- Backend: Puerto 3000 (Node.js + Express).
+- Frontend: Puerto 5173 (Vite + React).
+- Base de Datos: PostgreSQL (Puerto 5432).
+- Si cambias de computadora, asegúrate de crear el archivo .env en la carpeta backend con tus credenciales de Postgres.
