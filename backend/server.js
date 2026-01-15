@@ -20,8 +20,6 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-// --- NOTA: La ruta raíz '/' antigua se eliminó para que cargue la web ---
-
 // Ruta para probar la conexión a la Base de Datos
 app.get('/test-db', async (req, res) => {
   try {
@@ -54,6 +52,31 @@ app.post('/login', async (req, res) => {
       nombre: usuario.nombre,
       rol: usuario.rol
     });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Error del servidor");
+  }
+});
+
+// --- RUTA DE REGISTRO ---
+app.post('/register', async (req, res) => {
+  try {
+    const { nombre, email, password } = req.body;
+    
+    // 1. Verificar si ya existe el correo
+    const userExist = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+    if (userExist.rows.length > 0) {
+      return res.status(400).json({ error: "Este correo ya está registrado." });
+    }
+
+    // 2. Crear usuario (Por defecto rol 'empleado')
+    const newUser = await pool.query(
+      "INSERT INTO usuarios (nombre, email, password, rol) VALUES ($1, $2, $3, 'empleado') RETURNING id, nombre, rol",
+      [nombre, email, password]
+    );
+
+    res.json(newUser.rows[0]);
+
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Error del servidor");
@@ -113,16 +136,30 @@ app.put('/tickets/:id', async (req, res) => {
   }
 });
 
-// 4. Sumar voto
+// 4. Sumar voto (MODIFICADO: AHORA VALIDA DUPLICADOS)
 app.put('/tickets/:id/voto', async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params;      
+  const { usuario_id } = req.body; // Recibimos quién vota
+
   try {
+    // 1. Intentamos registrar el voto en la tabla de historial
+    await pool.query(
+      "INSERT INTO votos_registro (ticket_id, usuario_id) VALUES ($1, $2)",
+      [id, usuario_id]
+    );
+
+    // 2. Si no hubo error (no es duplicado), sumamos al contador
     const result = await pool.query(
       "UPDATE tickets SET votos = votos + 1 WHERE id = $1 RETURNING *",
       [id]
     );
     res.json(result.rows[0]);
+
   } catch (error) {
+    // Código 23505 = Violación de unicidad (ya votó)
+    if (error.code === '23505') {
+      return res.status(400).json({ error: "Ya has votado por este ticket" });
+    }
     console.error(error);
     res.status(500).json({ error: error.message });
   }
@@ -146,12 +183,25 @@ app.get('/tickets/buscar', async (req, res) => {
   }
 });
 
+// 6. NUEVA RUTA: Obtener historial de votos de un usuario
+app.get('/mis-votos/:usuario_id', async (req, res) => {
+  const { usuario_id } = req.params;
+  try {
+    const result = await pool.query(
+      "SELECT ticket_id FROM votos_registro WHERE usuario_id = $1", 
+      [usuario_id]
+    );
+    // Devolvemos solo un array simple de IDs: [1, 5, 8]
+    res.json(result.rows.map(row => row.ticket_id)); 
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al obtener votos" });
+  }
+});
+
 // --- INTEGRACIÓN FRONTEND ---
-// Esto hace que el servidor busque los archivos creados por "npm run build"
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-// CORRECCIÓN: Usamos /.*/ (sin comillas) en lugar de '*'
-// Esto le dice al servidor "Cualquier cosa que escriban, mándala al index.html"
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });

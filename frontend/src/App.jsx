@@ -12,6 +12,13 @@ function App() {
     titulo: '', ubicacion: '', descripcion: '', categoria: 'Mantenimiento', prioridad: 'media'
   });
 
+  // --- ESTADO PARA REGISTRO ---
+  const [esRegistro, setEsRegistro] = useState(false);
+  const [registroData, setRegistroData] = useState({ nombre: '', email: '', password: '' });
+
+  // --- NUEVO: ESTADO PARA MIS VOTOS ---
+  const [misVotos, setMisVotos] = useState([]); // Lista de IDs de tickets votados por mí
+
   // Buscador de duplicados
   const [sugerencias, setSugerencias] = useState([]);
 
@@ -19,11 +26,15 @@ function App() {
   const [ticketEditando, setTicketEditando] = useState(null); 
   const [editData, setEditData] = useState({ estatus: '', comentarios: '' });
 
+  // Efecto de carga inicial
   useEffect(() => {
-    if (usuario) cargarTickets();
+    if (usuario) {
+        cargarTickets();
+        cargarMisVotos(); // <--- NUEVO: Cargar historial de votos al entrar
+    }
   }, [usuario]);
 
-  // --- LOGIN (Lógica intacta) ---
+  // --- LOGIN ---
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -38,6 +49,26 @@ function App() {
     } catch (error) { console.error(error); }
   };
 
+  // --- REGISTRO ---
+  const handleRegistro = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(registroData)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert("¡Cuenta creada con éxito! Ahora puedes iniciar sesión.");
+        setEsRegistro(false); // Volver al login
+        setLoginData({ email: registroData.email, password: '' }); // Prellenar correo
+      } else {
+        alert(data.error || "Error al registrarse");
+      }
+    } catch (error) { console.error(error); }
+  };
+
   const cargarTickets = async () => {
     try {
       const res = await fetch(`${API_URL}/tickets`);
@@ -47,7 +78,17 @@ function App() {
     } catch (error) { console.error(error); }
   };
 
-  // --- CALCULAR DÍAS (Lógica intacta) ---
+  // --- NUEVO: FUNCIÓN CARGAR MIS VOTOS ---
+  const cargarMisVotos = async () => {
+    if (!usuario) return;
+    try {
+        const res = await fetch(`${API_URL}/mis-votos/${usuario.id}`);
+        const data = await res.json(); // Recibe array [1, 5, 8...]
+        setMisVotos(data); 
+    } catch (error) { console.error(error); }
+  };
+
+  // --- CALCULAR DÍAS ---
   const calcularDias = (fechaInicio, fechaFin = null) => {
     if (!fechaInicio) return 0;
     const inicio = new Date(fechaInicio);
@@ -61,7 +102,7 @@ function App() {
     return `${dias} días`;
   };
 
-  // --- BUSCADOR (Lógica intacta) ---
+  // --- BUSCADOR ---
   const buscarSimilares = async (texto) => {
     setFormData(prev => ({ ...prev, titulo: texto }));
     if (texto.length < 3) { setSugerencias([]); return; }
@@ -72,7 +113,7 @@ function App() {
     } catch (error) { console.error(error); }
   };
 
-  // --- CREAR TICKET (Lógica intacta) ---
+  // --- CREAR TICKET ---
   const handleCreateTicket = async (e) => {
     e.preventDefault();
     try {
@@ -91,23 +132,36 @@ function App() {
     } catch (error) { console.error(error); }
   };
 
-  // --- VOTAR (Lógica intacta) ---
+  // --- VOTAR (MODIFICADO) ---
   const handleVotar = async (id, desdeSugerencia = false) => {
+    // 1. Bloqueo local: Si ya está en mi lista, no hago nada
+    if (misVotos.includes(id)) return;
+
     try {
-      const res = await fetch(`${API_URL}/tickets/${id}/voto`, { method: 'PUT' });
+      const res = await fetch(`${API_URL}/tickets/${id}/voto`, { 
+        method: 'PUT', // 2. Ahora enviamos quién vota
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario_id: usuario.id }) 
+      });
+      
       if (res.ok) {
         cargarTickets();
+        setMisVotos([...misVotos, id]); // 3. Actualizamos la lista local para bloquear el botón
+        
         if (desdeSugerencia) {
             alert("¡Listo! Voto registrado.");
             setSugerencias([]);
             setFormData({ titulo: '', ubicacion: '', descripcion: '', categoria: 'Mantenimiento', prioridad: 'media' });
             setVista('dashboard');
         }
+      } else {
+        const errorData = await res.json();
+        alert(errorData.error);
       }
     } catch (error) { console.error(error); }
   };
 
-  // --- GESTIÓN (Lógica intacta) ---
+  // --- GESTIÓN ---
   const iniciarEdicion = (ticket) => {
     setTicketEditando(ticket.id);
     setEditData({ 
@@ -130,7 +184,7 @@ function App() {
     } catch (error) { console.error(error); }
   };
 
-  // --- NUEVO: CÁLCULO DE ESTADÍSTICAS PARA EL DASHBOARD ---
+  // --- ESTADÍSTICAS ---
   const stats = {
     abiertos: tickets.filter(t => t.estatus === 'abierto').length,
     proceso: tickets.filter(t => t.estatus === 'en_proceso').length,
@@ -138,10 +192,8 @@ function App() {
   };
 
   // =================================================================
-  // A PARTIR DE AQUÍ CAMBIA SOLO EL DISEÑO (JSX) - LÓGICA MANTENIDA
+  // VISTA DE LOGIN / REGISTRO
   // =================================================================
-
-  // --- VISTA DE LOGIN (Diseño Moderno) ---
   if (!usuario) {
     return (
       <div className="flex min-h-screen bg-gray-50 flex-col font-sans">
@@ -156,21 +208,101 @@ function App() {
             </div>
         </div>
 
-        {/* Tarjeta de Login Flotante */}
-        <div className="flex-1 flex items-center justify-center -mt-20 px-4">
+        {/* Tarjeta de Login/Registro Flotante */}
+        <div className="flex-1 flex items-center justify-center -mt-20 px-4 pb-10">
           <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
-            <h2 className="text-2xl font-bold text-gray-800 text-center mb-8">Iniciar Sesión</h2>
-            <form onSubmit={handleLogin} className="space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-gray-600 mb-1">Correo Electrónico</label>
-                <input type="email" placeholder="ejemplo@canaco.com" required className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" value={loginData.email} onChange={e => setLoginData({...loginData, email: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-600 mb-1">Contraseña</label>
-                <input type="password" placeholder="••••••••" required className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" value={loginData.password} onChange={e => setLoginData({...loginData, password: e.target.value})} />
-              </div>
-              <button type="submit" className="w-full bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-lg font-bold shadow-md transition transform hover:scale-[1.02]">Entrar al Sistema</button>
-            </form>
+            
+            <h2 className="text-2xl font-bold text-gray-800 text-center mb-2">
+              {esRegistro ? 'Crear Cuenta' : 'Iniciar Sesión'}
+            </h2>
+            <p className="text-center text-gray-500 text-sm mb-8">
+              {esRegistro ? 'Únete al sistema de reportes' : 'Ingresa tus credenciales para continuar'}
+            </p>
+
+            {esRegistro ? (
+              /* --- FORMULARIO DE REGISTRO --- */
+              <form onSubmit={handleRegistro} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-bold text-gray-600 mb-1">Nombre Completo</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ej. Juan Pérez" 
+                    required 
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-gray-50 focus:bg-white" 
+                    value={registroData.nombre} 
+                    onChange={e => setRegistroData({...registroData, nombre: e.target.value})} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-600 mb-1">Correo Electrónico</label>
+                  <input 
+                    type="email" 
+                    placeholder="ejemplo@canaco.com" 
+                    required 
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-gray-50 focus:bg-white" 
+                    value={registroData.email} 
+                    onChange={e => setRegistroData({...registroData, email: e.target.value})} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-600 mb-1">Contraseña</label>
+                  <input 
+                    type="password" 
+                    placeholder="Crea una contraseña segura" 
+                    required 
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-gray-50 focus:bg-white" 
+                    value={registroData.password} 
+                    onChange={e => setRegistroData({...registroData, password: e.target.value})} 
+                  />
+                </div>
+                <button type="submit" className="w-full bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-lg font-bold shadow-md transition transform hover:scale-[1.02]">
+                  Registrarme
+                </button>
+              </form>
+            ) : (
+              /* --- FORMULARIO DE LOGIN --- */
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-bold text-gray-600 mb-1">Correo Electrónico</label>
+                  <input 
+                    type="email" 
+                    placeholder="ejemplo@canaco.com" 
+                    required 
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-gray-50 focus:bg-white" 
+                    value={loginData.email} 
+                    onChange={e => setLoginData({...loginData, email: e.target.value})} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-600 mb-1">Contraseña</label>
+                  <input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    required 
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-gray-50 focus:bg-white" 
+                    value={loginData.password} 
+                    onChange={e => setLoginData({...loginData, password: e.target.value})} 
+                  />
+                </div>
+                <button type="submit" className="w-full bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-lg font-bold shadow-md transition transform hover:scale-[1.02]">
+                  Entrar al Sistema
+                </button>
+              </form>
+            )}
+
+            {/* --- SWITCH: BOTÓN PARA CAMBIAR ENTRE LOGIN Y REGISTRO --- */}
+            <div className="mt-6 text-center pt-4 border-t border-gray-100">
+               <p className="text-sm text-gray-600">
+                 {esRegistro ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}
+                 <button 
+                   onClick={() => setEsRegistro(!esRegistro)} 
+                   className="ml-2 text-blue-600 font-bold hover:underline focus:outline-none"
+                 >
+                   {esRegistro ? 'Inicia Sesión' : 'Regístrate aquí'}
+                 </button>
+               </p>
+            </div>
+
             <div className="mt-6 text-xs text-center text-gray-400">
                © 2026 CANACO Servytur Monterrey
             </div>
@@ -180,11 +312,13 @@ function App() {
     );
   }
 
-  // --- APP PRINCIPAL (Diseño Dashboard) ---
+  // =================================================================
+  // APP PRINCIPAL (Diseño Dashboard)
+  // =================================================================
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
       
-      {/* 1. NAVBAR SUPERIOR (Reemplaza la barra lateral) */}
+      {/* 1. NAVBAR SUPERIOR */}
       <nav className="bg-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20">
@@ -321,8 +455,18 @@ function App() {
                       {/* Botones de Acción */}
                       <div className="flex flex-col gap-3 min-w-[140px]">
                         {ticket.estatus !== 'resuelto' && (
-                          <button onClick={() => handleVotar(ticket.id)} className="group flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded-lg hover:border-blue-400 hover:text-blue-600 transition shadow-sm">
-                            <span>✋</span> Yo también <span className="font-bold bg-gray-100 px-1.5 rounded text-xs group-hover:bg-blue-100">{ticket.votos || 0}</span>
+                          <button 
+                            onClick={() => handleVotar(ticket.id)} 
+                            disabled={misVotos.includes(ticket.id)}
+                            className={`group flex items-center justify-center gap-2 border text-sm px-4 py-2 rounded-lg transition shadow-sm ${
+                              misVotos.includes(ticket.id)
+                                ? 'bg-blue-100 text-blue-600 border-blue-200 cursor-not-allowed opacity-80' 
+                                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400 hover:text-blue-600'
+                            }`}
+                          >
+                            <span>{misVotos.includes(ticket.id) ? '✅' : '✋'}</span> 
+                            {misVotos.includes(ticket.id) ? 'Ya votaste' : 'Yo también'} 
+                            <span className="font-bold bg-gray-100 px-1.5 rounded text-xs group-hover:bg-blue-100 ml-1">{ticket.votos || 0}</span>
                           </button>
                         )}
                         {(usuario.rol === 'admin' || usuario.rol === 'tecnico') && (
@@ -406,8 +550,13 @@ function App() {
                                    <span className="text-sm font-semibold text-gray-800 block">{s.titulo}</span>
                                    <span className="text-xs text-gray-500">{s.ubicacion} • {s.estatus}</span>
                                </div>
-                               <button type="button" onClick={() => handleVotar(s.id, true)} className="text-xs bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-bold transition">
-                                   ✋ Votar por este
+                               <button 
+                                 type="button" 
+                                 onClick={() => handleVotar(s.id, true)} 
+                                 disabled={misVotos.includes(s.id)}
+                                 className={`text-xs px-4 py-2 rounded-lg font-bold transition ${misVotos.includes(s.id) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}
+                               >
+                                   {misVotos.includes(s.id) ? 'Ya votaste' : '✋ Votar por este'}
                                </button>
                              </li>
                            ))}
