@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { API_URL } from './config' // <--- IMPORTANTE: Se mantiene la configuración
+import { API_URL } from './config' 
+// BORRÉ LA IMPORTACIÓN DEL LOGO PORQUE YA ESTÁ EN PUBLIC
 
 function App() {
   const [usuario, setUsuario] = useState(null);
@@ -17,7 +18,7 @@ function App() {
   const [registroData, setRegistroData] = useState({ nombre: '', email: '', password: '' });
 
   // --- NUEVO: ESTADO PARA MIS VOTOS ---
-  const [misVotos, setMisVotos] = useState([]); // Lista de IDs de tickets votados por mí
+  const [misVotos, setMisVotos] = useState([]); 
 
   // Buscador de duplicados
   const [sugerencias, setSugerencias] = useState([]);
@@ -30,7 +31,7 @@ function App() {
   useEffect(() => {
     if (usuario) {
         cargarTickets();
-        cargarMisVotos(); // <--- NUEVO: Cargar historial de votos al entrar
+        cargarMisVotos();
     }
   }, [usuario]);
 
@@ -61,8 +62,8 @@ function App() {
       const data = await res.json();
       if (res.ok) {
         alert("¡Cuenta creada con éxito! Ahora puedes iniciar sesión.");
-        setEsRegistro(false); // Volver al login
-        setLoginData({ email: registroData.email, password: '' }); // Prellenar correo
+        setEsRegistro(false); 
+        setLoginData({ email: registroData.email, password: '' }); 
       } else {
         alert(data.error || "Error al registrarse");
       }
@@ -78,12 +79,11 @@ function App() {
     } catch (error) { console.error(error); }
   };
 
-  // --- NUEVO: FUNCIÓN CARGAR MIS VOTOS ---
   const cargarMisVotos = async () => {
     if (!usuario) return;
     try {
         const res = await fetch(`${API_URL}/mis-votos/${usuario.id}`);
-        const data = await res.json(); // Recibe array [1, 5, 8...]
+        const data = await res.json(); 
         setMisVotos(data); 
     } catch (error) { console.error(error); }
   };
@@ -132,21 +132,20 @@ function App() {
     } catch (error) { console.error(error); }
   };
 
-  // --- VOTAR (MODIFICADO) ---
+  // --- VOTAR ---
   const handleVotar = async (id, desdeSugerencia = false) => {
-    // 1. Bloqueo local: Si ya está en mi lista, no hago nada
     if (misVotos.includes(id)) return;
 
     try {
       const res = await fetch(`${API_URL}/tickets/${id}/voto`, { 
-        method: 'PUT', // 2. Ahora enviamos quién vota
+        method: 'PUT', 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usuario_id: usuario.id }) 
       });
       
       if (res.ok) {
         cargarTickets();
-        setMisVotos([...misVotos, id]); // 3. Actualizamos la lista local para bloquear el botón
+        setMisVotos([...misVotos, id]); 
         
         if (desdeSugerencia) {
             alert("¡Listo! Voto registrado.");
@@ -199,19 +198,26 @@ function App() {
       <div className="flex min-h-screen bg-gray-50 flex-col font-sans">
         {/* Header Azul Curvo */}
         <div className="bg-gradient-to-r from-blue-900 to-blue-700 h-64 w-full flex items-center justify-center rounded-b-[50px] shadow-lg">
-            <div className="text-center">
-                <div className="bg-white/20 p-4 rounded-full inline-block mb-4 backdrop-blur-sm">
-                    <span className="text-5xl">🏢</span>
-                </div>
-                <h1 className="text-4xl font-bold text-white tracking-wide">CANACO <span className="font-light">Tickets</span></h1>
+            <div className="text-center pb-10">
+                <h1 className="text-4xl font-bold text-white tracking-wide">Bienvenido</h1>
                 <p className="text-blue-100 mt-2 tracking-widest uppercase text-xs">Sistema de Reportes Interno</p>
             </div>
         </div>
 
         {/* Tarjeta de Login/Registro Flotante */}
-        <div className="flex-1 flex items-center justify-center -mt-20 px-4 pb-10">
+        <div className="flex-1 flex items-center justify-center -mt-24 px-4 pb-10">
           <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
             
+            {/* --- AQUÍ ESTÁ EL CAMBIO 1: RUTA DIRECTA AL LOGO EN PUBLIC --- */}
+            <div className="flex justify-center mb-6">
+                 <img 
+                    src="/logo_canaco_oficial.png" 
+                    alt="Logo CANACO" 
+                    className="h-32 w-auto object-contain bg-white p-2" 
+                 />
+            </div>
+            {/* ------------------------------------- */}
+
             <h2 className="text-2xl font-bold text-gray-800 text-center mb-2">
               {esRegistro ? 'Crear Cuenta' : 'Iniciar Sesión'}
             </h2>
@@ -318,16 +324,23 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
       
-      {/* 1. NAVBAR SUPERIOR */}
+      {/* 1. NAVBAR SUPERIOR CON LOGO */}
       <nav className="bg-white shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-900 text-white p-2 rounded-lg">🏢</div>
+            <div className="flex items-center gap-4">
+              {/* --- AQUÍ ESTÁ EL CAMBIO 2: RUTA DIRECTA AL LOGO EN NAVBAR --- */}
+              <img 
+                 src="/logo_canaco_oficial.png" 
+                 alt="Logo CANACO" 
+                 className="h-14 w-auto object-contain" 
+              />
+              <div className="hidden sm:block h-8 w-[1px] bg-gray-300"></div> {/* Separador vertical */}
               <div>
-                 <h1 className="text-xl font-bold text-blue-900 leading-none">CANACO</h1>
-                 <span className="text-xs text-gray-500 font-medium tracking-widest">TICKETS</span>
+                 <h1 className="text-xl font-bold text-blue-900 leading-none">Mesa de Ayuda</h1>
+                 <span className="text-xs text-gray-500 font-medium tracking-widest">SISTEMA INTERNO</span>
               </div>
+              {/* -------------------------------------- */}
             </div>
             <div className="flex items-center gap-4">
                <div className="text-right hidden sm:block">
@@ -594,10 +607,11 @@ function App() {
         )}
       </main>
 
-      {/* 3. FOOTER (Nuevo) */}
+      {/* 3. FOOTER */}
       <footer className="bg-blue-900 text-white py-8 mt-auto">
          <div className="max-w-7xl mx-auto px-4 text-center">
              <div className="flex justify-center items-center gap-2 mb-4">
+                 {/* Reutilizamos el logo también en el footer si quieres, o dejamos el edificio */}
                  <span className="text-2xl">🏢</span>
                  <h2 className="text-xl font-bold">CANACO Monterrey</h2>
              </div>
