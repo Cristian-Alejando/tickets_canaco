@@ -4,7 +4,7 @@ const pool = require('../config/db'); // Importamos la conexión
 const createTicket = async (req, res) => {
   try {
     const { titulo, descripcion, ubicacion, categoria, prioridad } = req.body;
-    // OJO: Aquí mantenemos el usuario_id = 1 fijo por ahora, como en tu original
+    // OJO: Aquí mantenemos el usuario_id = 1 fijo por ahora
     const newTicket = await pool.query(
       `INSERT INTO tickets (titulo, descripcion, ubicacion, categoria, prioridad, usuario_id) 
        VALUES ($1, $2, $3, $4, $5, 1) RETURNING *`,
@@ -28,23 +28,33 @@ const getAllTickets = async (req, res) => {
   }
 };
 
-// 3. Actualizar (Gestión)
+// 3. Actualizar (Gestión) - ¡CORREGIDO!
 const updateTicket = async (req, res) => {
   const { id } = req.params;
-  const { estatus, comentarios } = req.body;
+  
+  // AHORA RECIBIMOS TODO EL PAQUETE DE DATOS
+  const { titulo, descripcion, ubicacion, categoria, estatus, prioridad, comentarios } = req.body;
+
   try {
     const result = await pool.query(
       `UPDATE tickets 
-       SET estatus = $1::varchar, 
-           comentarios = $2, 
+       SET titulo = $1,
+           descripcion = $2,
+           ubicacion = $3,
+           categoria = $4,
+           estatus = $5,
+           prioridad = $6,
+           comentarios = $7,
            fecha_actualizacion = NOW(),
-           fecha_cierre = CASE WHEN $1::varchar = 'resuelto' THEN NOW() ELSE NULL END
-       WHERE id = $3 RETURNING *`,
-      [estatus, comentarios, id]
+           fecha_cierre = CASE WHEN $5::varchar = 'resuelto' THEN NOW() ELSE NULL END
+       WHERE id = $8 RETURNING *`,
+      [titulo, descripcion, ubicacion, categoria, estatus, prioridad, comentarios, id]
     );
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Ticket no encontrado" });
     }
+
     res.json(result.rows[0]);
   } catch (error) {
     console.error(error);

@@ -17,7 +17,7 @@ function App() {
   const [esRegistro, setEsRegistro] = useState(false);
   const [registroData, setRegistroData] = useState({ nombre: '', email: '', password: '' });
 
-  // --- NUEVO: ESTADO PARA MIS VOTOS ---
+  // --- ESTADO PARA MIS VOTOS ---
   const [misVotos, setMisVotos] = useState([]); 
 
   // Buscador de duplicados
@@ -25,7 +25,8 @@ function App() {
 
   // Edición
   const [ticketEditando, setTicketEditando] = useState(null); 
-  const [editData, setEditData] = useState({ estatus: '', comentarios: '' });
+  // CORRECCIÓN: Agregamos prioridad al estado inicial de edición
+  const [editData, setEditData] = useState({ estatus: '', comentarios: '', prioridad: 'media' });
 
   // Efecto de carga inicial
   useEffect(() => {
@@ -74,7 +75,8 @@ function App() {
     try {
       const res = await fetch(`${API_URL}/tickets`);
       const data = await res.json();
-      const ticketsOrdenados = data.sort((a, b) => b.votos - a.votos || new Date(b.fecha_creacion) - new Date(a.fecha_creacion));
+      // Ordenar SIEMPRE del más nuevo al más viejo
+      const ticketsOrdenados = data.sort((a, b) => new Date(b.fecha_creacion) - new Date(a.fecha_creacion));
       setTickets(ticketsOrdenados);
     } catch (error) { console.error(error); }
   };
@@ -160,25 +162,70 @@ function App() {
     } catch (error) { console.error(error); }
   };
 
-  // --- GESTIÓN ---
+  // --- GESTIÓN (INICIAR EDICIÓN CORREGIDO) ---
   const iniciarEdicion = (ticket) => {
     setTicketEditando(ticket.id);
     setEditData({ 
-      estatus: ticket.estatus, 
-      comentarios: ticket.comentarios ? ticket.comentarios : '' 
+      estatus: ticket.estatus || 'abierto', // Fallback para que no se bloquee 
+      comentarios: ticket.comentarios || '',
+      prioridad: ticket.prioridad || 'media' // Cargamos también la prioridad actual
     });
   };
 
+  // --- GUARDAR EDICIÓN (CORREGIDO - NO BORRA DATOS) ---
   const guardarEdicion = async (id) => {
+    // 1. Recuperamos el ticket original completo
+    const ticketOriginal = tickets.find(t => t.id === id);
+
+    if (!ticketOriginal) return;
+
+    // 2. Mezclamos los datos originales con los editados
+    const datosCompletos = {
+        titulo: ticketOriginal.titulo,
+        descripcion: ticketOriginal.descripcion,
+        ubicacion: ticketOriginal.ubicacion,
+        categoria: ticketOriginal.categoria,
+        estatus: editData.estatus,          // Dato editado
+        comentarios: editData.comentarios,  // Dato editado
+        prioridad: editData.prioridad || ticketOriginal.prioridad || 'media' // Dato editado o mantienes el anterior
+    };
+
     try {
       const res = await fetch(`${API_URL}/tickets/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editData) 
+        body: JSON.stringify(datosCompletos) // Enviamos TODO el paquete
       });
       if (res.ok) {
         setTicketEditando(null); 
         cargarTickets(); 
+      } else {
+        alert("Error al guardar cambios");
+      }
+    } catch (error) { console.error(error); }
+  };
+
+  // --- CAMBIAR PRIORIDAD (CORREGIDO) ---
+  const cambiarPrioridad = async (ticket, nuevaPrioridad) => {
+    const datosActualizados = {
+      titulo: ticket.titulo,
+      descripcion: ticket.descripcion,
+      ubicacion: ticket.ubicacion,
+      categoria: ticket.categoria,
+      estatus: ticket.estatus,         
+      comentarios: ticket.comentarios,
+      prioridad: nuevaPrioridad        
+    };
+
+    try {
+      const res = await fetch(`${API_URL}/tickets/${ticket.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(datosActualizados)
+      });
+      
+      if (res.ok) {
+        cargarTickets();
       }
     } catch (error) { console.error(error); }
   };
@@ -208,7 +255,6 @@ function App() {
         <div className="flex-1 flex items-center justify-center -mt-24 px-4 pb-10">
           <div className="bg-white p-10 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
             
-            {/* --- AQUÍ ESTÁ EL CAMBIO 1: RUTA DIRECTA AL LOGO EN PUBLIC --- */}
             <div className="flex justify-center mb-6">
                  <img 
                     src="/logo_canaco_oficial.png" 
@@ -216,7 +262,6 @@ function App() {
                     className="h-32 w-auto object-contain bg-white p-2" 
                  />
             </div>
-            {/* ------------------------------------- */}
 
             <h2 className="text-2xl font-bold text-gray-800 text-center mb-2">
               {esRegistro ? 'Crear Cuenta' : 'Iniciar Sesión'}
@@ -226,7 +271,6 @@ function App() {
             </p>
 
             {esRegistro ? (
-              /* --- FORMULARIO DE REGISTRO --- */
               <form onSubmit={handleRegistro} className="space-y-5">
                 <div>
                   <label className="block text-sm font-bold text-gray-600 mb-1">Nombre Completo</label>
@@ -266,7 +310,6 @@ function App() {
                 </button>
               </form>
             ) : (
-              /* --- FORMULARIO DE LOGIN --- */
               <form onSubmit={handleLogin} className="space-y-5">
                 <div>
                   <label className="block text-sm font-bold text-gray-600 mb-1">Correo Electrónico</label>
@@ -296,7 +339,6 @@ function App() {
               </form>
             )}
 
-            {/* --- SWITCH: BOTÓN PARA CAMBIAR ENTRE LOGIN Y REGISTRO --- */}
             <div className="mt-6 text-center pt-4 border-t border-gray-100">
                <p className="text-sm text-gray-600">
                  {esRegistro ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}
@@ -329,18 +371,16 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-20">
             <div className="flex items-center gap-4">
-              {/* --- AQUÍ ESTÁ EL CAMBIO 2: RUTA DIRECTA AL LOGO EN NAVBAR --- */}
               <img 
                  src="/logo_canaco_oficial.png" 
                  alt="Logo CANACO" 
                  className="h-14 w-auto object-contain" 
               />
-              <div className="hidden sm:block h-8 w-[1px] bg-gray-300"></div> {/* Separador vertical */}
+              <div className="hidden sm:block h-8 w-[1px] bg-gray-300"></div> 
               <div>
                  <h1 className="text-xl font-bold text-blue-900 leading-none">Mesa de Ayuda</h1>
                  <span className="text-xs text-gray-500 font-medium tracking-widest">SISTEMA INTERNO</span>
               </div>
-              {/* -------------------------------------- */}
             </div>
             <div className="flex items-center gap-4">
                <div className="text-right hidden sm:block">
@@ -435,7 +475,7 @@ function App() {
                                ticket.estatus === 'abierto' ? 'bg-orange-50 text-orange-600 border border-orange-100' :
                                ticket.estatus === 'en_proceso' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 
                                ticket.estatus === 'resuelto' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-gray-100 text-gray-500'
-                            }`}>{ticket.estatus.replace('_', ' ')}</span>
+                            }`}>{(ticket.estatus || '').replace('_', ' ')}</span>
                             
                             {ticket.votos > 0 && (
                                <span className="text-xs font-bold bg-red-50 text-red-600 px-3 py-1 rounded-full border border-red-100 flex items-center gap-1">
@@ -449,6 +489,11 @@ function App() {
                         
                         <div className="flex items-center gap-2 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-2 rounded-lg inline-block">
                             <span>📍</span> {ticket.ubicacion}
+                        </div>
+
+                        {/* --- NUEVO: FECHA DE CREACIÓN --- */}
+                        <div className="flex items-center gap-2 text-sm text-gray-500 font-medium bg-gray-50 px-3 py-2 rounded-lg inline-block ml-2 border border-gray-200">
+                          <span>📅</span> Creado el: {new Date(ticket.fecha_creacion).toLocaleDateString()}
                         </div>
                         
                         {ticket.estatus === 'resuelto' && ticket.fecha_cierre && (
@@ -467,6 +512,23 @@ function App() {
 
                       {/* Botones de Acción */}
                       <div className="flex flex-col gap-3 min-w-[140px]">
+                        {(usuario.rol === 'admin' || usuario.rol === 'tecnico') && (
+                          <select
+                            value={ticket.prioridad || 'media'}
+                            onChange={(e) => cambiarPrioridad(ticket, e.target.value)}
+                            className={`text-sm px-3 py-2 rounded-lg font-bold border-2 transition cursor-pointer focus:outline-none focus:ring-2 ${
+                              ticket.prioridad === 'alta'
+                                ? 'bg-red-100 text-red-700 border-red-300 focus:ring-red-400'
+                                : ticket.prioridad === 'media'
+                                ? 'bg-yellow-100 text-yellow-700 border-yellow-300 focus:ring-yellow-400'
+                                : 'bg-green-100 text-green-700 border-green-300 focus:ring-green-400'
+                            }`}
+                          >
+                            <option value="baja">🟢 Baja</option>
+                            <option value="media">🟡 Media</option>
+                            <option value="alta">🔴 Alta</option>
+                          </select>
+                        )}
                         {ticket.estatus !== 'resuelto' && (
                           <button 
                             onClick={() => handleVotar(ticket.id)} 
@@ -611,7 +673,6 @@ function App() {
       <footer className="bg-blue-900 text-white py-8 mt-auto">
          <div className="max-w-7xl mx-auto px-4 text-center">
              <div className="flex justify-center items-center gap-2 mb-4">
-                 {/* Reutilizamos el logo también en el footer si quieres, o dejamos el edificio */}
                  <span className="text-2xl">🏢</span>
                  <h2 className="text-xl font-bold">CANACO Monterrey</h2>
              </div>
