@@ -5,7 +5,7 @@
 1. Crear la Base de Datos
    Nombre: tickets_canaco
 
-2. Crear Tablas Principales (Ejecutar en orden en Query Tool)
+2. Crear Tablas Principales (Ejecutar en orden en Query Tool de pgAdmin)
 
 -- A) Tabla de Usuarios
 CREATE TABLE usuarios (
@@ -16,15 +16,15 @@ CREATE TABLE usuarios (
     rol VARCHAR(50) DEFAULT 'empleado' 
 );
 
--- B) Tabla de Tickets (Esquema Completo)
+-- B) Tabla de Tickets (Actualizada con Prioridad y Fechas)
 CREATE TABLE tickets (
     id SERIAL PRIMARY KEY,
     titulo VARCHAR(200) NOT NULL,
     descripcion TEXT,
     ubicacion VARCHAR(150),
     categoria VARCHAR(100),
-    estatus VARCHAR(50) DEFAULT 'abierto',
-    prioridad VARCHAR(50) DEFAULT 'media',
+    estatus VARCHAR(50) DEFAULT 'abierto', -- Valores: abierto, en_proceso, resuelto, cancelado
+    prioridad VARCHAR(50) DEFAULT 'media', -- Valores: baja, media, alta
     votos INTEGER DEFAULT 0,
     comentarios TEXT,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -33,12 +33,12 @@ CREATE TABLE tickets (
     usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL
 );
 
--- C) Tabla de Historial de Votos (NUEVA - Para voto único)
+-- C) Tabla de Historial de Votos (Evita votos dobles)
 CREATE TABLE votos_registro (
     id SERIAL PRIMARY KEY,
     ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
     usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
-    UNIQUE(ticket_id, usuario_id)
+    UNIQUE(ticket_id, usuario_id) -- Candado para que un usuario solo vote 1 vez por ticket
 );
 
 ===================================================
@@ -53,10 +53,26 @@ VALUES ('Administrador', 'admin@canaco.com', 'admin123', 'admin');
 INSERT INTO usuarios (nombre, email, password, rol)
 VALUES ('Juan Pérez', 'juan@canaco.com', '123456', 'empleado');
 
+-- Usuario Técnico (Rol: tecnico) - OPCIONAL
+INSERT INTO usuarios (nombre, email, password, rol)
+VALUES ('Soporte TI', 'soporte@canaco.com', '123456', 'tecnico');
+
 ===================================================
- NOTAS TÉCNICAS:
+ NOTAS TÉCNICAS Y DE RED (IMPORTANTE)
 ===================================================
-- Backend: Puerto 3000 (Node.js + Express).
-- Frontend: Puerto 5173 (Vite + React).
-- Base de Datos: PostgreSQL (Puerto 5432).
-- Si cambias de computadora, asegúrate de crear el archivo .env en la carpeta backend con tus credenciales de Postgres.
+1. PUERTOS:
+   - Backend (API): Puerto 3000
+   - Frontend (React): Puerto 5173
+   - Base de Datos (Postgres): Puerto 5432
+
+2. CONEXIÓN EN RED (WiFi):
+   - Para ver la app desde celulares u otras PC, debes cambiar "localhost" por tu IP (ej. 192.168.X.X) en:
+     a) frontend/src/config.js (API_URL)
+     b) backend/config/db.js (host de la BD si es necesario)
+
+3. VARIABLES DE ENTORNO (.env en carpeta backend):
+   DB_USER=postgres
+   DB_PASSWORD=tu_contraseña
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_NAME=tickets_canaco
