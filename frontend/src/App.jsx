@@ -3,11 +3,12 @@ import { API_URL } from './config'
 import LoginPage from './pages/LoginPage'
 import Navbar from './components/Navbar'
 import TicketCard from './components/TicketCard'
-import StatsCards from './components/StatsCards'         // <--- NUEVO
-import CreateTicketForm from './components/CreateTicketForm' // <--- NUEVO
-import { formatearFecha } from './utils/format'
+import StatsCards from './components/StatsCards'
+import CreateTicketForm from './components/CreateTicketForm'
+import ConfigModal from './components/ConfigModal' // <--- NUEVO
+import UsersList from './components/UsersList'     // <--- NUEVO
 import { 
-  getTickets, createTicket, updateTicket, voteTicket, getMyVotes 
+  getTickets, createTicket, updateTicket, voteTicket, getMyVotes, getUsers // <--- NUEVO IMPORT
 } from './services/ticketService'
 
 function App() {
@@ -24,11 +25,15 @@ function App() {
   const [ticketEditando, setTicketEditando] = useState(null); 
   const [editData, setEditData] = useState({ estatus: '', comentarios: '', prioridad: 'media' });
 
+  // --- NUEVOS ESTADOS ---
+  const [mostrarConfig, setMostrarConfig] = useState(false);
+  const [listaUsuarios, setListaUsuarios] = useState([]);
+
   useEffect(() => {
     if (usuario) { cargarTickets(); cargarMisVotos(); }
   }, [usuario]);
 
-  // --- LÓGICA ---
+  // --- LÓGICA DE DATOS ---
   const cargarTickets = async () => {
     try {
       const data = await getTickets();
@@ -44,6 +49,12 @@ function App() {
   const cargarMisVotos = async () => {
     if (!usuario) return;
     try { const data = await getMyVotes(usuario.id); setMisVotos(data); } catch (error) { console.error(error); }
+  };
+
+  // --- NUEVA FUNCIÓN: CARGAR USUARIOS ---
+  const cargarUsuarios = async () => {
+    try { const data = await getUsers(); setListaUsuarios(data); } 
+    catch (error) { console.error(error); }
   };
 
   const handleCreateTicket = async (e) => {
@@ -117,7 +128,12 @@ function App() {
   // --- RENDERIZADO ---
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
-      <Navbar usuario={usuario} onLogout={() => setUsuario(null)} />
+      {/* NAVBAR ACTUALIZADO CON CLICK DE CONFIG */}
+      <Navbar 
+        usuario={usuario} 
+        onLogout={() => setUsuario(null)} 
+        onConfigClick={() => setMostrarConfig(true)}
+      />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {/* Pestañas */}
@@ -125,15 +141,21 @@ function App() {
             <button onClick={() => setVista('dashboard')} className={`px-6 py-2 rounded-full font-bold transition shadow-sm ${vista === 'dashboard' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>📊 Panel de Control</button>
             <button onClick={() => { setVista('crear'); setSugerencias([]); }} className={`px-6 py-2 rounded-full font-bold transition shadow-sm ${vista === 'crear' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>➕ Nuevo Reporte</button>
             <button onClick={() => setVista('historial')} className={`px-6 py-2 rounded-full font-bold transition shadow-sm ${vista === 'historial' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>📜 Historial Resueltos</button>
+            
+            {/* BOTÓN SOLO PARA ADMINS: VER USUARIOS */}
+            {(usuario.rol === 'admin' || usuario.rol === 'tecnico') && (
+                <button onClick={() => { setVista('usuarios'); cargarUsuarios(); }} 
+                    className={`px-6 py-2 rounded-full font-bold transition shadow-sm ${vista === 'usuarios' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>
+                    👥 Usuarios
+                </button>
+            )}
         </div>
 
         {/* --- VISTA DASHBOARD --- */}
         {vista === 'dashboard' && (
           <div className="animate-fade-in-up">
             <StatsCards stats={stats} />
-
             <h2 className="text-2xl font-bold text-blue-900 mb-6 border-b pb-2 border-gray-200">Reportes Recientes</h2>
-
             <div className="grid gap-6">
               {tickets.filter(t => t.estatus !== 'resuelto').map(ticket => (
                 <TicketCard 
@@ -191,10 +213,26 @@ function App() {
              />
           </div>
         )}
+
+        {/* --- VISTA USUARIOS (NUEVA) --- */}
+        {vista === 'usuarios' && (
+            <UsersList users={listaUsuarios} />
+        )}
+
       </main>
+      
       <footer className="bg-blue-900 text-white py-8 mt-auto">
          <div className="max-w-7xl mx-auto px-4 text-center"><div className="flex justify-center items-center gap-2 mb-4"><span className="text-2xl">🏢</span><h2 className="text-xl font-bold">CANACO Monterrey</h2></div><p className="text-blue-200 text-sm">Sistema de Tickets de Mantenimiento y Sistemas</p><div className="mt-4 text-xs text-blue-400">© 2026 Cámara Nacional de Comercio, Servicios y Turismo de Monterrey.</div></div>
       </footer>
+
+      {/* --- MODAL DE CONFIGURACIÓN (FLOTANTE) --- */}
+      {mostrarConfig && (
+        <ConfigModal 
+            usuario={usuario} 
+            onClose={() => setMostrarConfig(false)} 
+        />
+      )}
+
     </div>
   );
 }
