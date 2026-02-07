@@ -2,18 +2,31 @@ const pool = require('../config/db'); // Importamos la conexión
 
 // 1. Crear Ticket
 const createTicket = async (req, res) => {
+  // Ahora recibimos nombre y email también
+  const { titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto } = req.body;
+
   try {
-    const { titulo, descripcion, ubicacion, categoria, prioridad } = req.body;
-    // OJO: Aquí mantenemos el usuario_id = 1 fijo por ahora
     const newTicket = await pool.query(
-      `INSERT INTO tickets (titulo, descripcion, ubicacion, categoria, prioridad, usuario_id) 
-       VALUES ($1, $2, $3, $4, $5, 1) RETURNING *`,
-      [titulo, descripcion, ubicacion, categoria, prioridad]
+      `INSERT INTO tickets (titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [
+        titulo, 
+        descripcion, 
+        categoria, 
+        prioridad, 
+        ubicacion, 
+        usuario_id || null, // Si no hay ID, manda null
+        nombre_contacto,    // Nuevo campo
+        email_contacto      // Nuevo campo
+      ]
     );
+    
+    // AQUÍ IRÁ EL CÓDIGO DE ENVÍO DE CORREO (Lo haremos en el siguiente paso)
+    
     res.json(newTicket.rows[0]);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Error del servidor");
+    res.status(500).send('Error al crear ticket');
   }
 };
 

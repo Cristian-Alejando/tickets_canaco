@@ -56,3 +56,9 @@ export const getMyVotes = async (userId) => {
     const res = await fetch(`${API_URL}/mis-votos/${userId}`);
     return await res.json();
 };
+
+// --- USUARIOS (ESTA ES LA QUE FALTABA) ---
+export const getUsers = async () => {
+    const res = await fetch(`${API_URL}/users`);
+    return await res.json();
+};

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 export default function CreateTicketForm({ 
     onSubmit, 
     onCancel, 
@@ -6,16 +8,66 @@ export default function CreateTicketForm({
     onSearch, 
     sugerencias, 
     onVoteSugerencia, 
-    misVotos 
+    misVotos,
+    usuario // <--- IMPORTANTE: Recibimos al usuario
 }) {
   return (
     <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 animate-fade-in-up">
+        
+        {/* ENCABEZADO DINÁMICO */}
         <div className="text-center mb-8">
-            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">📝</div>
-            <h2 className="text-2xl font-bold text-gray-800">Nuevo Reporte</h2>
-            <p className="text-gray-500">Describe el problema para que mantenimiento pueda atenderlo.</p>
+            <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                {usuario ? '👮‍♂️' : '📝'}
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800">
+                {usuario ? 'Nuevo Reporte Interno' : 'Nuevo Reporte'}
+            </h2>
+            <p className="text-gray-500">
+                {usuario ? 'Registrando ticket como Administrador.' : 'Describe el problema para que te ayudemos.'}
+            </p>
         </div>
         
+        {/* --- SECCIÓN DE IDENTIDAD (NUEVO) --- */}
+        {usuario ? (
+            /* CASO 1: ADMIN (Tarjeta de Identificación) */
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex items-center gap-4">
+                <div className="bg-blue-200 text-blue-800 w-10 h-10 rounded-full flex items-center justify-center font-bold">
+                    {usuario.nombre.charAt(0)}
+                </div>
+                <div>
+                    <p className="text-sm font-bold text-blue-900">Solicitante: {usuario.nombre}</p>
+                    <p className="text-xs text-blue-600">{usuario.departamento} • {usuario.email}</p>
+                </div>
+            </div>
+        ) : (
+            /* CASO 2: PÚBLICO (Inputs de Nombre y Correo) */
+            <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">
+                <h3 className="text-xs font-bold text-gray-500 uppercase">Tus Datos de Contacto</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Tu Nombre *</label>
+                        <input 
+                            type="text" required 
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                            placeholder="Ej. Juan Pérez"
+                            value={formData.nombre_contacto || ''}
+                            onChange={e => setFormData({...formData, nombre_contacto: e.target.value})}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Tu Correo *</label>
+                        <input 
+                            type="email" required 
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                            placeholder="contacto@ejemplo.com"
+                            value={formData.email_contacto || ''}
+                            onChange={e => setFormData({...formData, email_contacto: e.target.value})}
+                        />
+                    </div>
+                </div>
+            </div>
+        )}
+
         <form onSubmit={onSubmit} className="space-y-6">
             <div className="relative">
                 <label className="block text-sm font-bold text-gray-700 mb-2">Título del problema</label>
@@ -27,12 +79,12 @@ export default function CreateTicketForm({
                     required autoComplete="off"
                 />
                 
-                {/* Alerta de duplicados */}
-                {sugerencias.length > 0 && (
+                {/* ALERTA DE DUPLICADOS (SOLO VISIBLE PARA ADMINS) */}
+                {sugerencias.length > 0 && usuario && (
                 <div className="mt-4 bg-orange-50 border border-orange-200 rounded-xl p-5 animate-pulse">
                     <div className="flex items-center gap-2 mb-3">
                         <span className="text-orange-500 text-xl">⚠️</span>
-                        <p className="text-sm text-orange-800 font-bold">¡Espera! Encontramos reportes similares:</p>
+                        <p className="text-sm text-orange-800 font-bold">Posibles duplicados encontrados:</p>
                     </div>
                     <ul className="space-y-3">
                     {sugerencias.map(s => (
@@ -47,7 +99,7 @@ export default function CreateTicketForm({
                             disabled={misVotos.includes(s.id)}
                             className={`text-xs px-4 py-2 rounded-lg font-bold transition ${misVotos.includes(s.id) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}
                         >
-                            {misVotos.includes(s.id) ? 'Ya votaste' : '✋ Votar por este'}
+                            {misVotos.includes(s.id) ? 'Ya votaste' : '✋ Es este'}
                         </button>
                         </li>
                     ))}
@@ -76,8 +128,12 @@ export default function CreateTicketForm({
             </div>
             
             <div className="flex gap-4 pt-4">
-                <button type="button" onClick={onCancel} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-3 rounded-lg font-bold transition">Cancelar</button>
-                <button type="submit" className="flex-1 bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-lg font-bold shadow-lg transition transform hover:scale-[1.02]">Crear Reporte</button>
+                <button type="button" onClick={onCancel} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-3 rounded-lg font-bold transition">
+                    {usuario ? 'Cancelar' : 'Limpiar Formulario'}
+                </button>
+                <button type="submit" className="flex-1 bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-lg font-bold shadow-lg transition transform hover:scale-[1.02]">
+                    Enviar Reporte 🚀
+                </button>
             </div>
         </form>
     </div>
