@@ -209,7 +209,8 @@ function App() {
                 usuario ? (
                     <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
                         <AdminMenu activo="usuarios" />
-                        <UsersList users={listaUsuarios} />
+                        {/* ⬇️ AQUÍ ESTÁ EL CAMBIO YA APLICADO ⬇️ */}
+                        <UsersList users={listaUsuarios} onUserUpdated={cargarUsuarios} />
                     </main>
                 ) : <Navigate to="/admin" />
             } />

@@ -1,12 +1,15 @@
-const router = require('express').Router();
-// Importamos 'login', 'register' y la NUEVA función 'getAllUsers'
-const { login, register, getAllUsers } = require('../controllers/authController');
+const express = require('express');
+const router = express.Router();
 
-// Definimos las rutas y qué función del controlador las atiende
+// IMPORTANTE: Aquí los nombres deben ser IDÉNTICOS a los de authController.js
+// Antes decía 'getAllUsers', ahora lo corregimos a 'getUsers'
+const { login, register, getUsers, deleteUser } = require('../controllers/authController');
+
 router.post('/login', login);
 router.post('/register', register);
 
-// --- NUEVA RUTA (Idea 5): Ver lista de usuarios ---
-router.get('/users', getAllUsers);
+// Rutas de gestión
+router.get('/users', getUsers);          // <--- Ahora usa 'getUsers' (Correcto)
+router.delete('/users/:id', deleteUser); // <--- Para borrar usuarios
 
 module.exports = router;
