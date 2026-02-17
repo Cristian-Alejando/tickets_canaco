@@ -5,26 +5,26 @@
 1. Crear la Base de Datos
    Nombre: tickets_canaco
 
-2. Crear Tablas Principales (Ejecutar en orden en Query Tool de pgAdmin)
+2. Crear Tablas Principales (Ejecutar en orden)
 
--- A) Tabla de Usuarios
+-- A) Tabla de Usuarios (Ajustada para Soporte Híbrido)
 CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    rol VARCHAR(50) DEFAULT 'empleado' 
+    password VARCHAR(255) NOT NULL, -- Soporta texto plano (legacy) y bcrypt
+    rol VARCHAR(50) DEFAULT 'tecnico' -- Unificado con el controlador
 );
 
--- B) Tabla de Tickets (Actualizada con Prioridad y Fechas)
+-- B) Tabla de Tickets
 CREATE TABLE tickets (
     id SERIAL PRIMARY KEY,
     titulo VARCHAR(200) NOT NULL,
     descripcion TEXT,
     ubicacion VARCHAR(150),
     categoria VARCHAR(100),
-    estatus VARCHAR(50) DEFAULT 'abierto', -- Valores: abierto, en_proceso, resuelto, cancelado
-    prioridad VARCHAR(50) DEFAULT 'media', -- Valores: baja, media, alta
+    estatus VARCHAR(50) DEFAULT 'abierto',
+    prioridad VARCHAR(50) DEFAULT 'media',
     votos INTEGER DEFAULT 0,
     comentarios TEXT,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -33,46 +33,47 @@ CREATE TABLE tickets (
     usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL
 );
 
--- C) Tabla de Historial de Votos (Evita votos dobles)
+-- C) Tabla de Historial de Votos
 CREATE TABLE votos_registro (
     id SERIAL PRIMARY KEY,
     ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
     usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
-    UNIQUE(ticket_id, usuario_id) -- Candado para que un usuario solo vote 1 vez por ticket
+    UNIQUE(ticket_id, usuario_id)
 );
 
 ===================================================
-3. Usuarios Iniciales (Insertar manualmente)
+3. Usuarios Iniciales (Insertar para acceso inmediato)
 ===================================================
 
--- Usuario Administrador (Rol: admin)
+-- IMPORTANTE: El sistema detectará que estas claves son 'texto plano' 
+-- y permitirá el acceso inicial para luego ser actualizadas.
+
 INSERT INTO usuarios (nombre, email, password, rol)
 VALUES ('Administrador', 'admin@canaco.com', 'admin123', 'admin');
 
--- Usuario Empleado de Prueba (Rol: empleado)
-INSERT INTO usuarios (nombre, email, password, rol)
-VALUES ('Juan Pérez', 'juan@canaco.com', '123456', 'empleado');
-
--- Usuario Técnico (Rol: tecnico) - OPCIONAL
 INSERT INTO usuarios (nombre, email, password, rol)
 VALUES ('Soporte TI', 'soporte@canaco.com', '123456', 'tecnico');
 
 ===================================================
- NOTAS TÉCNICAS Y DE RED (IMPORTANTE)
+ NOTAS TÉCNICAS Y DESPLIEGUE (ACTUALIZADO 2026)
 ===================================================
-1. PUERTOS:
-   - Backend (API): Puerto 3000
-   - Frontend (React): Puerto 5173
-   - Base de Datos (Postgres): Puerto 5432
 
-2. CONEXIÓN EN RED (WiFi):
-   - Para ver la app desde celulares u otras PC, debes cambiar "localhost" por tu IP (ej. 192.168.X.X) en:
-     a) frontend/src/config.js (API_URL)
-     b) backend/config/db.js (host de la BD si es necesario)
+1. SEGURIDAD:
+   - Las nuevas contraseñas creadas desde la App se guardan encriptadas con bcryptjs.
+   - El sistema soporta contraseñas antiguas en texto plano para usuarios legacy.
 
-3. VARIABLES DE ENTORNO (.env en carpeta backend):
+2. CONEXIÓN EXTERNA (Túnel):
+   - Para acceso desde cualquier red/internet: Ejecutar 'ngrok http 3000'.
+   - El link devuelto (https://...) debe pegarse en frontend/src/config.js.
+
+3. MODO PRODUCCIÓN:
+   - Al ejecutar 'npm run build', el backend sirve automáticamente el frontend.
+   - Ya no es necesario usar el puerto 5173 en producción; todo corre por el 3000.
+
+4. VARIABLES DE ENTORNO (.env):
    DB_USER=postgres
    DB_PASSWORD=tu_contraseña
    DB_HOST=localhost
    DB_PORT=5432
    DB_NAME=tickets_canaco
+   JWT_SECRET=secreto_super_seguro

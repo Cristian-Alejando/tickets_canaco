@@ -1,155 +1,163 @@
-# 🎫 Sistema de Tickets CANACO - Mesa de Ayuda Interna
+# 🎫 Sistema de Tickets CANACO — Mesa de Ayuda Interna
 
-> **Estado del Proyecto:** En Desarrollo / Producción
-> **Versión:** 1.2.0
+![Node.js](https://img.shields.io/badge/Node.js-339933?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-000000?logo=express&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/Postgres-336791?logo=postgresql&logoColor=white)
+![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
+![bcryptjs](https://img.shields.io/badge/bcryptjs-6CC24A?logo=bcrypt&logoColor=white)
 
-## 📋 Tabla de Contenidos
+Estado: En Desarrollo / Producción  
+Versión: 1.2.0  
+Autor: Cristian — CANACO Monterrey
 
-- [Descripción General](#-descripción-general)
-- [Arquitectura del Sistema](#️-arquitectura-del-sistema)
-- [Características Principales](#-características-principales)
-- [Requisitos Previos](#-requisitos-previos)
-- [Instalación y Despliegue](#-instalación-y-despliegue)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [Base de Datos](#️-base-de-datos)
-- [API Endpoints](#-api-endpoints)
-- [Tecnologías Utilizadas](#-tecnologías-utilizadas)
-- [Mantenimiento](#-mantenimiento)
-- [Autor](#-autor)
+Resumen
+-------
+Sistema de gestión de tickets (Help Desk) diseñado para centralizar reportes, priorizar incidencias mediante votación de usuarios y proporcionar un panel administrativo para la gestión completa de casos. Arquitectura MVC con Backend unificado y Frontend en React (Vite).
 
-## 🎯 Descripción General
+Arquitectura
+-----------
+- Patrón: Modelo–Vista–Controlador (MVC).
+- Backend: Node.js + Express (API REST unificada).
+- Frontend: SPA en React, construcción con Vite.
+- BD: PostgreSQL (pg Pool).
+- Autenticación: bcryptjs con soporte híbrido para contraseñas legacy (migración segura).
 
-El **Sistema de Tickets CANACO** es una solución integral de **Help Desk** diseñada para optimizar la gestión de incidencias de Mantenimiento y Sistemas dentro de la Cámara Nacional de Comercio de Monterrey.
+Funcionalidades principales
+---------------------------
+- Autenticación híbrida: soporta contraseñas hasheadas y legacy para migración.
+- Buzón público: creación de tickets por usuarios.
+- Panel administrativo: gestión de estatus, prioridad, usuarios y votos.
+- Sistema de votación para priorizar incidencias; prevención de votos duplicados.
+- Soporte de despliegue local y remoto mediante túneles seguros (ngrok).
+- Backend sirve la build de frontend (producción).
 
-El sistema reemplaza la gestión informal (WhatsApp/Papel) por una plataforma centralizada que permite reportar fallas, priorizar tareas mediante un sistema de votación de afectados y generar métricas de resolución.
+Estructura del proyecto
+-----------------------
+- /backend
+  - config/        — Conexión a PostgreSQL (pool).
+  - controllers/   — Lógica de negocio (auth, tickets).
+  - routes/        — Endpoints de la API.
+  - server.js      — Punto de entrada del servidor.
+  - package.json
+- /frontend
+  - src/
+    - components/  — UI reutilizable.
+    - pages/       — Vistas (Login, Dashboard).
+    - services/    — Comunicación con la API.
+    - config.js    — URL del backend / configuración.
+    - App.jsx
+  - package.json
+- docs/ (instrucciones, scripts SQL)
 
-### Propósito
-- Centralizar reportes de fallas (Aire acondicionado, Red, Mobiliario).
-- Priorizar incidencias basándose en el impacto (Votos de usuarios afectados).
-- Proveer un historial de soluciones para futura referencia.
+Instalación y ejecución (Desarrollo)
+-----------------------------------
+Requisitos: Node.js, npm, PostgreSQL.
 
-## 🏗️ Arquitectura del Sistema
+1. Base de datos
+   - Crear BD (ej. tickets_canaco) y ejecutar scripts SQL en docs/instrucciones_db.txt.
+   - Configurar usuario/contraseña y variables de conexión.
 
-El proyecto utiliza una arquitectura **Cliente-Servidor (REST API)** moderna y desacoplada.
+2. Backend
+   ```bash
+   cd backend
+   npm install
+   # crear .env basado en .env.example (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET, PORT)
+   npm run dev   # usa nodemon (ver package.json)
+   ```
+   Nota: el servidor sirve la carpeta build del frontend en producción desde ../frontend/dist
 
-```mermaid
-graph TD
-    User[Usuario / Empleado] -->|Navegador Web| Frontend
-    Frontend[React + Vite + Tailwind] -->|JSON / HTTP| Backend
-    Backend[Node.js + Express] -->|SQL Queries| DB
-    DB[(PostgreSQL)]
+3. Frontend
+   ```bash
+   cd frontend
+   npm install
+   npm run dev -- --host   # Vite en modo desarrollo accesible en LAN
+   ```
+   - Actualizar frontend/src/config.js con la URL del backend (ej. http://192.168.x.x:3000 o el túnel ngrok).
 
-Componentes Técnicos
-Frontend: Single Page Application (SPA) construida con React 18.
+Empaquetado y despliegue (Producción)
+-------------------------------------
+1. Generar build del frontend:
+   ```bash
+   cd frontend
+   npm run build
+   ```
+   Output: frontend/dist
 
-Backend: API RESTful construida con Node.js y Express.
+2. Ejecutar backend en modo producción para servir la build:
+   ```bash
+   cd backend
+   # establecer .env apropiado
+   node server.js
+   ```
+   - Opcional: usar PM2, Docker o un reverse proxy (nginx) para gestión en producción.
 
-Base de Datos: PostgreSQL relacional para integridad de datos.
+Despliegue remoto seguro (ngrok)
+--------------------------------
+- Para exponer localmente:
+  ```bash
+  ngrok http 3000
+  ```
+- Actualizar frontend/src/config.js con la URL pública devuelta por ngrok.
 
-Red: Configurado para acceso vía IP local (LAN) dentro de las oficinas.
+Variables de entorno recomendadas (.env)
+----------------------------------------
+- PORT=3000
+- DB_HOST=
+- DB_PORT=5432
+- DB_USER=
+- DB_PASSWORD=
+- DB_NAME=
+- JWT_SECRET=
+- NODE_ENV=production|development
 
-✨ Características Principales
-🎫 Gestión de Incidencias
-Creación Rápida: Formulario simplificado con detección de duplicados en tiempo real.
+API — Endpoints representativos
+-------------------------------
+- POST /auth/login             — Autenticación
+- POST /auth/register          — Registrar usuario (admin)
+- GET  /tickets                — Listar tickets
+- POST /tickets                — Crear ticket público
+- PUT  /tickets/:id            — Actualizar ticket (admin)
+- PUT  /tickets/:id/voto       — Sumar voto a ticket
+- GET  /tickets/buscar?q=...   — Búsqueda predictiva
 
-Priorización Dinámica: Sistema de "Votos" donde múltiples usuarios pueden reportar el mismo problema, elevando su urgencia automáticamente.
+Base de datos — esquema básico
+-----------------------------
+Tablas principales: tickets, usuarios, votos_registro  
+Ejemplo (resumen):
+- tickets: id (PK), titulo, descripcion, estatus, prioridad, votos, created_at, closed_at
+- usuarios: id (PK), email, password_hash, rol
+- votos_registro: id, ticket_id, usuario_id, created_at
 
-Categorización: Clasificación por áreas (Sistemas, Mantenimiento, Limpieza, Seguridad).
+Buenas prácticas y seguridad
+----------------------------
+- No commitear .env ni credenciales.
+- Hashear contraseñas nuevas con bcryptjs; mantener compatibilidad para migración de legacy.
+- Validar y sanitizar entradas en backend.
+- Limitar exposición de puertos y usar túneles seguros o proxy SSL en producción.
 
-🛠️ Panel Administrativo (Dashboard)
-Kanban Simplificado: Vista rápida de tickets Pendientes, En Proceso y Resueltos.
+Mantenimiento
+------------
+- Mantener dependencia de Postgres activa antes de iniciar backend.
+- Actualizar frontend/src/config.js cuando cambie la URL del backend.
+- Revisar la integridad de la tabla votos_registro para evitar votos duplicados.
 
-Gestión de Estados: Cambio de estatus y prioridad en tiempo real.
+Referencias rápidas
+-------------------
+- backend/server.js
+- backend/config/db.js
+- backend/controllers/authController.js
+- backend/controllers/ticketController.js
+- backend/routes/authRoutes.js
+- backend/routes/ticketRoutes.js
+- frontend/src/config.js
+- frontend/src/services/
 
-Historial de Soluciones: Archivo muerto de casos resueltos con notas técnicas de la solución aplicada.
-
-🔐 Seguridad y Acceso
-Roles de Usuario:
-
-Empleado: Solo puede crear y votar.
-
-Técnico/Admin: Puede editar, cambiar estatus y cerrar tickets.
-
-Autenticación: Login seguro contra base de datos PostgreSQL.
-
-🚀 Instalación y Despliegue
-1. Configuración de Base de Datos
-Ejecutar el script SQL incluido en docs/instrucciones_db.txt utilizando pgAdmin 4.
-
-Base de datos: tickets_canaco
-
-Puerto default: 5432
-
-2. Instalación del Backend (API)
-cd backend
-npm install
-# Crear archivo .env basado en .env.example
-npm start
-
-3. Instalación del Frontend (Cliente)cd frontend
-npm install
-# Verificar IP en src/config.js para acceso en red
-npm run dev -- --host
-
-📁 Estructura del Proyecto
-El proyecto sigue una arquitectura modular y escalable:
-
-SistemaTicketsCanaco/
-├── backend/
-│   ├── config/         # Conexión a DB (Pool)
-│   ├── controllers/    # Lógica de negocio (CRUD Tickets)
-│   ├── routes/         # Definición de Endpoints
-│   └── index.js        # Punto de entrada del servidor
-│
-├── frontend/
-│   ├── src/
-│   │   ├── components/ # Piezas UI reutilizables (Navbar, Cards)
-│   │   ├── pages/      # Vistas completas (Login, Dashboard)
-│   │   ├── services/   # Comunicación con API (Fetch)
-│   │   ├── utils/      # Funciones auxiliares (Formatos de fecha)
-│   │   └── App.jsx     # Orquestador principal
-│   └── public/         # Assets estáticos
-
-🗄️ Base de Datos
-El esquema relacional está diseñado para evitar redundancia y permitir auditoría.
-Tabla: tickets
-Columna         Tipo        Descripción
-id              SERIAL	    PK
-titulo	        VARCHAR	    Resumen del problema
-estatus	        VARCHAR	    abierto, en_proceso, resuelto
-prioridad	    VARCHAR	    baja, media, alta
-votos	        INT	        Contador de afectados
-fecha_cierre	TIMESTAMP	Fecha de resolución
-
-Tabla: usuarios
-Columna	    Tipo	    Descripción
-id	        SERIAL	    PK
-email	    VARCHAR	    Credencial de acceso
-rol	        VARCHAR	    admin, tecnico, empleado
-
-🔌 API Endpoints
-Método      Endpoint                Descripción
-GET	        /tickets	            Obtener todos los tickets activos
-POST	    /tickets	            Crear nuevo reporte
-PUT	        /tickets/:id	        Actualizar estatus/prioridad (Admin)
-PUT	        /tickets/:id/voto	    Sumar voto a un ticket existente
-POST	    /login	                Autenticación de usuarios
-GET	        /tickets/buscar?q=...	Buscador predictivo
-
-💻 Tecnologías Utilizadas
-🔧 Mantenimiento
-Notas para futuros desarrolladores:
-Cambio de IP: Si el servidor cambia de IP, actualizar frontend/src/config.js.
-
-PostgreSQL: Asegurar que el servicio de Postgres esté corriendo antes de iniciar el backend.
-
-Refactorización: El frontend utiliza una arquitectura de servicios en src/services. Evitar hacer fetch directamente en los componentes.
-
-👤 Autor
-Desarrollado para el Depto. de Sistemas CANACO Monterrey.
-
-Desarrollador: Cristian
-
-Rol: Practicante de Sistemas
-
+Créditos
+--------
+Desarrollado por: Cristian — CANACO Monterrey  
 Año: 2026
+
+Licencia
+--------
+Añadir archivo LICENSE según políticas institucionales antes de publicar.

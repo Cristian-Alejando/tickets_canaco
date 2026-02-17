@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 
 export default function CreateTicketForm({ 
     onSubmit, 
@@ -11,6 +11,12 @@ export default function CreateTicketForm({
     misVotos,
     usuario // <--- IMPORTANTE: Recibimos al usuario
 }) {
+
+  // Fijar Categoría Automáticamente al cargar
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, categoria: 'General' }));
+  }, []);
+
   return (
     <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 animate-fade-in-up">
         
@@ -27,24 +33,30 @@ export default function CreateTicketForm({
             </p>
         </div>
         
-        {/* --- SECCIÓN DE IDENTIDAD (NUEVO) --- */}
+        {/* --- SECCIÓN DE IDENTIDAD --- */}
         {usuario ? (
             /* CASO 1: ADMIN (Tarjeta de Identificación) */
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex items-center gap-4">
                 <div className="bg-blue-200 text-blue-800 w-10 h-10 rounded-full flex items-center justify-center font-bold">
-                    {usuario.nombre.charAt(0)}
+                    {usuario.nombre ? usuario.nombre.charAt(0) : 'U'}
                 </div>
                 <div>
                     <p className="text-sm font-bold text-blue-900">Solicitante: {usuario.nombre}</p>
-                    <p className="text-xs text-blue-600">{usuario.departamento} • {usuario.email}</p>
+                    <p className="text-xs text-blue-600">
+                        {usuario.rol} • {usuario.email} 
+                        {/* AQUI: Mostramos el teléfono si lo tiene */}
+                        {usuario.telefono && ` • 📞 ${usuario.telefono}`}
+                    </p>
                 </div>
             </div>
         ) : (
-            /* CASO 2: PÚBLICO (Inputs de Nombre y Correo) */
+            /* CASO 2: PÚBLICO (Inputs de Nombre, Correo y TELÉFONO) */
             <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">
                 <h3 className="text-xs font-bold text-gray-500 uppercase">Tus Datos de Contacto</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> 
+                    {/* CAMBIO: Grid de 3 columnas para que quepa el teléfono */}
+                    
+                    <div className="md:col-span-1">
                         <label className="block text-sm font-bold text-gray-700 mb-2">Tu Nombre *</label>
                         <input 
                             type="text" required 
@@ -54,7 +66,8 @@ export default function CreateTicketForm({
                             onChange={e => setFormData({...formData, nombre_contacto: e.target.value})}
                         />
                     </div>
-                    <div>
+                    
+                    <div className="md:col-span-1">
                         <label className="block text-sm font-bold text-gray-700 mb-2">Tu Correo *</label>
                         <input 
                             type="email" required 
@@ -62,6 +75,18 @@ export default function CreateTicketForm({
                             placeholder="contacto@ejemplo.com"
                             value={formData.email_contacto || ''}
                             onChange={e => setFormData({...formData, email_contacto: e.target.value})}
+                        />
+                    </div>
+
+                    {/* --- NUEVO INPUT DE TELÉFONO --- */}
+                    <div className="md:col-span-1">
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Teléfono *</label>
+                        <input 
+                            type="tel" required
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                            placeholder="Ej. 555-1234"
+                            value={formData.telefono_contacto || ''}
+                            onChange={e => setFormData({...formData, telefono_contacto: e.target.value})}
                         />
                     </div>
                 </div>
@@ -79,7 +104,7 @@ export default function CreateTicketForm({
                     required autoComplete="off"
                 />
                 
-                {/* ALERTA DE DUPLICADOS (SOLO VISIBLE PARA ADMINS) */}
+                {/* ALERTA DE DUPLICADOS */}
                 {sugerencias.length > 0 && usuario && (
                 <div className="mt-4 bg-orange-50 border border-orange-200 rounded-xl p-5 animate-pulse">
                     <div className="flex items-center gap-2 mb-3">
@@ -108,18 +133,16 @@ export default function CreateTicketForm({
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Ubicación exacta</label>
-                    <input className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Ej: Piso 2, Oficina 3" value={formData.ubicacion} onChange={e => setFormData({...formData, ubicacion: e.target.value})} required/>
-                </div>
-                <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Categoría</label>
-                    <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white transition" value={formData.categoria} onChange={e => setFormData({...formData, categoria: e.target.value})}>
-                        <option>Mantenimiento</option><option>Sistemas</option><option>Limpieza</option>
-                        <option value="Seguridad">Seguridad</option><option value="Administrativo">Administrativo</option>
-                    </select>
-                </div>
+            {/* --- SOLO MOSTRAMOS UBICACIÓN (Categoría Oculta) --- */}
+            <div>
+                 <label className="block text-sm font-bold text-gray-700 mb-2">Ubicación exacta</label>
+                 <input 
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
+                    placeholder="Ej: Piso 2, Oficina 3" 
+                    value={formData.ubicacion} 
+                    onChange={e => setFormData({...formData, ubicacion: e.target.value})} 
+                    required
+                />
             </div>
 
             <div>

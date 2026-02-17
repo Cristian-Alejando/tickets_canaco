@@ -1,16 +1,14 @@
-import { API_URL } from '../config';
-
-// ==========================================
-// 1. USUARIOS Y AUTENTICACIÓN
-// ==========================================
+import { API_URL } from '../config'; // Asegúrate de que esto esté arriba
 
 export const loginUser = async (credentials) => {
   try {
+    // ESTA ES LA FORMA CORRECTA Y PROFESIONAL:
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(credentials),
     });
+
     const data = await response.json();
     if (!response.ok) return { error: data.error || 'Error al iniciar sesión' };
     return data.user;

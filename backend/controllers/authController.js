@@ -4,12 +4,15 @@ const jwt = require('jsonwebtoken');
 
 const SECRET_KEY = process.env.JWT_SECRET || 'secreto_super_seguro';
 
-// 1. REGISTRAR USUARIO
+// ==========================================
+// 1. REGISTRAR USUARIO (¡Ahora con Teléfono!)
+// ==========================================
 const register = async (req, res) => {
-  const { nombre, email, password, rol } = req.body;
+  // AQUI: Agregamos 'telefono' a la extracción de datos
+  const { nombre, email, password, rol, telefono } = req.body;
   
   try {
-    // Verificar si ya existe
+    // Verificar si ya existe el correo
     const userExist = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
     if (userExist.rows.length > 0) {
       return res.status(400).json({ error: 'El correo ya está registrado' });
@@ -19,10 +22,11 @@ const register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Insertar en BD
+    // Insertar en BD (Agregamos la columna telefono y el valor $5)
+    // NOTA: Si no envían rol, por defecto será 'empleado'
     const newUser = await pool.query(
-      'INSERT INTO usuarios (nombre, email, password, rol) VALUES ($1, $2, $3, $4) RETURNING id, nombre, email, rol',
-      [nombre, email, hashedPassword, rol || 'tecnico']
+      'INSERT INTO usuarios (nombre, email, password, rol, telefono) VALUES ($1, $2, $3, $4, $5) RETURNING id, nombre, email, rol, telefono',
+      [nombre, email, hashedPassword, rol || 'empleado', telefono] 
     );
 
     // Crear Token
@@ -36,7 +40,9 @@ const register = async (req, res) => {
   }
 };
 
-// 2. LOGIN USUARIO (¡MODIFICADO PARA ACEPTAR CONTRASEÑAS VIEJAS!)
+// ==========================================
+// 2. LOGIN USUARIO (Soporte Híbrido)
+// ==========================================
 const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -85,10 +91,13 @@ const login = async (req, res) => {
   }
 };
 
+// ==========================================
 // 3. OBTENER TODOS LOS USUARIOS
+// ==========================================
 const getUsers = async (req, res) => {
   try {
-    const allUsers = await pool.query('SELECT id, nombre, email, rol FROM usuarios ORDER BY id ASC');
+    // AQUI: Agregamos 'telefono' al SELECT para verlo en la tabla
+    const allUsers = await pool.query('SELECT id, nombre, email, rol, telefono FROM usuarios ORDER BY id ASC');
     res.json(allUsers.rows);
   } catch (err) {
     console.error(err.message);
@@ -96,7 +105,9 @@ const getUsers = async (req, res) => {
   }
 };
 
+// ==========================================
 // 4. ELIMINAR USUARIO
+// ==========================================
 const deleteUser = async (req, res) => {
   const { id } = req.params;
   try {
