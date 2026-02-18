@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom' // <--- IMPORTANTE: Herramientas de ruta
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { API_URL } from './config'
 
 // Componentes
@@ -10,21 +10,21 @@ import StatsCards from './components/StatsCards'
 import CreateTicketForm from './components/CreateTicketForm'
 import ConfigModal from './components/ConfigModal'
 import UsersList from './components/UsersList'
+import RegisterPage from './pages/RegisterPage' 
 
 // Servicios
 import { 
-  getTickets, createTicket, updateTicket, voteTicket, getMyVotes, getUsers 
+  getTickets, createTicket, updateTicket, voteTicket, getMyVotes, getUsers, deleteTicket 
 } from './services/ticketService'
 
 function App() {
   const [usuario, setUsuario] = useState(null);
-  // const [vista, setVista] = useState('dashboard'); // <--- BORRADO: Ya no usamos esto
   const [tickets, setTickets] = useState([]);
   
-  const navigate = useNavigate(); // <--- EL GPS ACTIVADO
+  const navigate = useNavigate();
 
   // Estados de la app
-  const [mostrandoLogin, setMostrandoLogin] = useState(false); // Para el botón del candado
+  const [mostrandoLogin, setMostrandoLogin] = useState(false);
   const [formData, setFormData] = useState({ 
       titulo: '', ubicacion: '', descripcion: '', categoria: 'Mantenimiento', prioridad: 'media',
       nombre_contacto: '', email_contacto: '' 
@@ -33,7 +33,10 @@ function App() {
   const [misVotos, setMisVotos] = useState([]); 
   const [sugerencias, setSugerencias] = useState([]);
   const [ticketEditando, setTicketEditando] = useState(null); 
-  const [editData, setEditData] = useState({ estatus: '', comentarios: '', prioridad: 'media' });
+  
+  // MODIFICADO: Agregamos 'asignado_a' para controlar el técnico
+  const [editData, setEditData] = useState({ estatus: '', comentarios: '', prioridad: 'media', asignado_a: '' });
+  
   const [mostrarConfig, setMostrarConfig] = useState(false);
   const [listaUsuarios, setListaUsuarios] = useState([]);
 
@@ -42,7 +45,7 @@ function App() {
     if (usuario) { 
         cargarTickets(); 
         cargarMisVotos();
-        cargarUsuarios(); // Cargar usuarios si es admin
+        cargarUsuarios();
     }
   }, [usuario]);
 
@@ -81,29 +84,80 @@ function App() {
         
         if (usuario) {
             cargarTickets(); 
-            navigate('/admin/dashboard'); // <--- REDIRECCIÓN AUTOMÁTICA
+            navigate('/admin/dashboard');
         }
       }
     } catch (error) { console.error(error); alert("Error al crear reporte"); }
   };
 
-  // Login y Logout con redirección
+  // Login y Logout
   const handleLoginSuccess = (u) => {
       setUsuario(u);
-      navigate('/admin/dashboard'); // <--- AL ENTRAR, VA AL PANEL
+      navigate('/admin/dashboard');
   };
 
   const handleLogout = () => {
       setUsuario(null);
-      navigate('/'); // <--- AL SALIR, VA AL BUZÓN PÚBLICO
+      navigate('/');
   };
 
-  // ... Funciones auxiliares (Votar, Editar, etc.) se quedan igual
+  // --- FUNCIONES DE GESTIÓN ---
   const handleVotar = async (id, desdeSugerencia = false) => { if (!usuario) return; if (misVotos.includes(id)) return; try { const res = await voteTicket(id, usuario.id); if (res.ok) { cargarTickets(); setMisVotos([...misVotos, id]); if (desdeSugerencia) { alert("¡Voto registrado!"); setSugerencias([]); setFormData({...formData, titulo:''}); if(usuario) navigate('/admin/dashboard'); } } } catch (error) { console.error(error); } };
-  const guardarEdicion = async (id) => { const ticketOriginal = tickets.find(t => t.id === id); if (!ticketOriginal) return; const datosCompletos = { ...ticketOriginal, estatus: editData.estatus, comentarios: editData.comentarios, prioridad: editData.prioridad || ticketOriginal.prioridad || 'media' }; try { const res = await updateTicket(id, datosCompletos); if (res.ok) { setTicketEditando(null); cargarTickets(); } else { alert("Error"); } } catch (error) { console.error(error); } };
+  
+  const guardarEdicion = async (id) => { 
+    const ticketOriginal = tickets.find(t => t.id === id); 
+    if (!ticketOriginal) return; 
+    
+    // MODIFICADO: Incluimos asignado_a al guardar
+    const datosCompletos = { 
+        ...ticketOriginal, 
+        estatus: editData.estatus, 
+        comentarios: editData.comentarios, 
+        prioridad: editData.prioridad || ticketOriginal.prioridad || 'media',
+        asignado_a: editData.asignado_a // <--- AQUÍ SE GUARDA EL TÉCNICO
+    }; 
+    
+    try { 
+        const res = await updateTicket(id, datosCompletos); 
+        if (res.ok) { 
+            setTicketEditando(null); 
+            cargarTickets(); 
+        } else { 
+            alert("Error"); 
+        } 
+    } catch (error) { console.error(error); } 
+  };
+  
   const cambiarPrioridad = async (t, p) => { const datos = { ...t, prioridad: p }; try { const res = await updateTicket(t.id, datos); if (res.ok) cargarTickets(); } catch (e) { console.error(e); } };
-  const iniciarEdicion = (t) => { setTicketEditando(t.id); setEditData({ estatus: t.estatus || 'abierto', comentarios: t.comentarios || '', prioridad: t.prioridad || 'media' }); };
+  
+  const iniciarEdicion = (t) => { 
+      setTicketEditando(t.id); 
+      // MODIFICADO: Cargamos el técnico actual al abrir el editor
+      setEditData({ 
+          estatus: t.estatus || 'abierto', 
+          comentarios: t.comentarios || '', 
+          prioridad: t.prioridad || 'media', 
+          asignado_a: t.asignado_a || '' // <--- AQUÍ SE CARGA EL DATO
+      }); 
+  };
+  
   const buscarSimilares = async (txt) => { setFormData(prev => ({ ...prev, titulo: txt })); if (txt.length < 3) { setSugerencias([]); return; } try { const res = await fetch(`${API_URL}/tickets/buscar?q=${txt}`); const data = await res.json(); setSugerencias(data); } catch (e) { console.error(e); } };
+
+  // Eliminar Ticket
+  const handleDeleteTicket = async (id) => {
+    try {
+        const res = await deleteTicket(id);
+        if (res.ok) {
+            setTickets(prevTickets => prevTickets.filter(t => t.id !== id));
+            if (ticketEditando === id) setTicketEditando(null);
+        } else {
+            alert("Error al eliminar: " + (res.error || "Desconocido"));
+        }
+    } catch (error) {
+        console.error("Error eliminando:", error);
+        alert("Error de conexión al eliminar.");
+    }
+  };
 
   const stats = {
     abiertos: tickets.filter(t => t.estatus === 'abierto').length,
@@ -111,7 +165,6 @@ function App() {
     resueltos: tickets.filter(t => t.estatus === 'resuelto').length
   };
 
-  // --- COMPONENTE DE BOTONES ADMIN (Para no repetir código) ---
   const AdminMenu = ({ activo }) => (
     <div className="flex justify-center mb-8 gap-4 overflow-x-auto pb-2">
         <button onClick={() => navigate('/admin/dashboard')} className={`px-6 py-2 rounded-full font-bold shadow-sm transition ${activo === 'dashboard' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>📊 Panel</button>
@@ -125,13 +178,10 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
-        {/* Navbar solo si hay usuario logueado */}
         {usuario && <Navbar usuario={usuario} onLogout={handleLogout} onConfigClick={() => setMostrarConfig(true)} />}
 
-        {/* --- AQUÍ ESTÁN LAS RUTAS DEFINIDAS --- */}
         <Routes>
-            
-            {/* 1. BUZÓN PÚBLICO (RUTA RAÍZ /) */}
+            {/* 1. BUZÓN PÚBLICO */}
             <Route path="/" element={
                 <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 w-full">
                     <div className="max-w-2xl w-full animate-fade-in-up">
@@ -146,18 +196,20 @@ function App() {
                             formData={formData} setFormData={setFormData} onSearch={buscarSimilares} sugerencias={sugerencias} onVoteSugerencia={handleVotar} misVotos={[]} 
                             usuario={null} 
                         />
-                        
                         <div className="mt-8 text-xs text-gray-400 text-center">© 2026 Cámara Nacional de Comercio Monterrey</div>
                     </div>
                 </div>
             } />
 
-            {/* 2. LOGIN (/admin) */}
+            {/* 2. LOGIN */}
             <Route path="/admin" element={
                 usuario ? <Navigate to="/admin/dashboard" /> : <LoginPage onLoginSuccess={handleLoginSuccess} />
             } />
 
-            {/* 3. DASHBOARD (/admin/dashboard) */}
+            {/* 3. REGISTRO */}
+            <Route path="/register" element={<RegisterPage />} />
+
+            {/* 4. DASHBOARD */}
             <Route path="/admin/dashboard" element={
                 usuario ? (
                     <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
@@ -167,7 +219,24 @@ function App() {
                             <h2 className="text-2xl font-bold text-blue-900 mb-6 border-b pb-2 mt-6">Reportes Activos</h2>
                             <div className="grid gap-6">
                                 {tickets.filter(t => t.estatus !== 'resuelto').map(t => (
-                                    <TicketCard key={t.id} ticket={t} usuario={usuario} misVotos={misVotos} isEditing={ticketEditando === t.id} editData={editData} setEditData={setEditData} handlers={{onVote: handleVotar, onEditStart: iniciarEdicion, onEditCancel: ()=>setTicketEditando(null), onEditSave: guardarEdicion, onPriorityChange: cambiarPrioridad}} />
+                                    <TicketCard 
+                                        key={t.id} 
+                                        ticket={t} 
+                                        usuario={usuario} 
+                                        misVotos={misVotos} 
+                                        isEditing={ticketEditando === t.id} 
+                                        editData={editData} 
+                                        setEditData={setEditData}
+                                        listaUsuarios={listaUsuarios} // <--- ¡AQUÍ ESTÁ LA PROPIEDAD AGREGADA!
+                                        handlers={{
+                                            onVote: handleVotar, 
+                                            onEditStart: iniciarEdicion, 
+                                            onEditCancel: ()=>setTicketEditando(null), 
+                                            onEditSave: guardarEdicion, 
+                                            onPriorityChange: cambiarPrioridad,
+                                            onDelete: handleDeleteTicket
+                                        }} 
+                                    />
                                 ))}
                             </div>
                         </div>
@@ -175,7 +244,7 @@ function App() {
                 ) : <Navigate to="/admin" />
             } />
 
-            {/* 4. HISTORIAL (/admin/historial) */}
+            {/* 5. HISTORIAL */}
             <Route path="/admin/historial" element={
                 usuario ? (
                     <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
@@ -184,7 +253,23 @@ function App() {
                             <div className="text-center mb-8"><h2 className="text-2xl font-bold text-blue-900">📜 Archivo de Casos Resueltos</h2></div>
                             <div className="space-y-6">
                                 {tickets.filter(t => t.estatus === 'resuelto').map(t => (
-                                    <TicketCard key={t.id} ticket={t} usuario={usuario} misVotos={misVotos} isEditing={ticketEditando === t.id} editData={editData} setEditData={setEditData} handlers={{onVote: handleVotar, onEditStart: iniciarEdicion, onEditCancel: ()=>setTicketEditando(null), onEditSave: guardarEdicion}} />
+                                    <TicketCard 
+                                        key={t.id} 
+                                        ticket={t} 
+                                        usuario={usuario} 
+                                        misVotos={misVotos} 
+                                        isEditing={ticketEditando === t.id} 
+                                        editData={editData} 
+                                        setEditData={setEditData}
+                                        listaUsuarios={listaUsuarios} // <--- AQUÍ TAMBIÉN
+                                        handlers={{
+                                            onVote: handleVotar, 
+                                            onEditStart: iniciarEdicion, 
+                                            onEditCancel: ()=>setTicketEditando(null), 
+                                            onEditSave: guardarEdicion,
+                                            onDelete: handleDeleteTicket
+                                        }} 
+                                    />
                                 ))}
                             </div>
                         </div>
@@ -192,7 +277,7 @@ function App() {
                 ) : <Navigate to="/admin" />
             } />
 
-            {/* 5. CREAR INTERNO (/admin/crear) */}
+            {/* 6. CREAR INTERNO */}
             <Route path="/admin/crear" element={
                 usuario ? (
                     <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
@@ -204,12 +289,11 @@ function App() {
                 ) : <Navigate to="/admin" />
             } />
 
-            {/* 6. USUARIOS (/admin/usuarios) */}
+            {/* 7. USUARIOS */}
             <Route path="/admin/usuarios" element={
                 usuario ? (
                     <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
                         <AdminMenu activo="usuarios" />
-                        {/* ⬇️ AQUÍ ESTÁ EL CAMBIO YA APLICADO ⬇️ */}
                         <UsersList users={listaUsuarios} onUserUpdated={cargarUsuarios} />
                     </main>
                 ) : <Navigate to="/admin" />

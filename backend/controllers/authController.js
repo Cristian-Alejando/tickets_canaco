@@ -5,10 +5,9 @@ const jwt = require('jsonwebtoken');
 const SECRET_KEY = process.env.JWT_SECRET || 'secreto_super_seguro';
 
 // ==========================================
-// 1. REGISTRAR USUARIO (¡Ahora con Teléfono!)
+// 1. REGISTRAR USUARIO
 // ==========================================
 const register = async (req, res) => {
-  // AQUI: Agregamos 'telefono' a la extracción de datos
   const { nombre, email, password, rol, telefono } = req.body;
   
   try {
@@ -22,10 +21,10 @@ const register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Insertar en BD (Agregamos la columna telefono y el valor $5)
-    // NOTA: Si no envían rol, por defecto será 'empleado'
+    // Insertar en BD
+    // NOTA: La columna 'activo' se pone en TRUE automáticamente por la base de datos (DEFAULT TRUE)
     const newUser = await pool.query(
-      'INSERT INTO usuarios (nombre, email, password, rol, telefono) VALUES ($1, $2, $3, $4, $5) RETURNING id, nombre, email, rol, telefono',
+      'INSERT INTO usuarios (nombre, email, password, rol, telefono) VALUES ($1, $2, $3, $4, $5) RETURNING id, nombre, email, rol, telefono, activo',
       [nombre, email, hashedPassword, rol || 'empleado', telefono] 
     );
 
@@ -41,7 +40,7 @@ const register = async (req, res) => {
 };
 
 // ==========================================
-// 2. LOGIN USUARIO (Soporte Híbrido)
+// 2. LOGIN USUARIO (Con Protección de "Activo")
 // ==========================================
 const login = async (req, res) => {
   const { email, password } = req.body;
@@ -53,16 +52,23 @@ const login = async (req, res) => {
       return res.status(400).json({ error: 'Usuario no encontrado' });
     }
 
+    // --- NUEVO BLOQUE DE SEGURIDAD ---
+    // Si el usuario fue "borrado" (desactivado), no lo dejamos entrar.
+    if (user.rows[0].activo === false) { 
+        return res.status(401).json({ error: 'Este usuario ha sido desactivado. Contacta al administrador.' });
+    }
+    // ----------------------------------
+
     const dbPassword = user.rows[0].password;
     let validPassword = false;
 
-    // A. PRIMER INTENTO: Verificar si es encriptada (Seguridad moderna)
+    // A. PRIMER INTENTO: Verificar si es encriptada
     const isMatch = await bcrypt.compare(password, dbPassword);
     
     if (isMatch) {
       validPassword = true;
     } 
-    // B. SEGUNDO INTENTO: Verificar si es texto plano (Usuario viejo)
+    // B. SEGUNDO INTENTO: Verificar si es texto plano
     else if (password === dbPassword) {
       validPassword = true;
       console.log("⚠️ ALERTA: Usuario ingresó con contraseña NO encriptada.");
@@ -72,7 +78,7 @@ const login = async (req, res) => {
       return res.status(400).json({ error: 'Contraseña incorrecta' });
     }
 
-    // Generar Token si pasó cualquiera de las dos pruebas
+    // Generar Token
     const token = jwt.sign({ id: user.rows[0].id }, SECRET_KEY, { expiresIn: '8h' });
 
     res.json({
@@ -81,7 +87,9 @@ const login = async (req, res) => {
         id: user.rows[0].id,
         nombre: user.rows[0].nombre,
         email: user.rows[0].email,
-        rol: user.rows[0].rol
+        rol: user.rows[0].rol,
+        telefono: user.rows[0].telefono,
+        activo: user.rows[0].activo // Enviamos el estatus
       }
     });
 
@@ -96,8 +104,10 @@ const login = async (req, res) => {
 // ==========================================
 const getUsers = async (req, res) => {
   try {
-    // AQUI: Agregamos 'telefono' al SELECT para verlo en la tabla
-    const allUsers = await pool.query('SELECT id, nombre, email, rol, telefono FROM usuarios ORDER BY id ASC');
+    // MODIFICADO: Agregamos 'activo' al SELECT para saber quién está disponible
+    // Nota: Podrías poner "WHERE activo = true" si solo quieres ver a los activos,
+    // pero como Admin es mejor verlos a todos.
+    const allUsers = await pool.query('SELECT id, nombre, email, rol, telefono, activo FROM usuarios ORDER BY id ASC');
     res.json(allUsers.rows);
   } catch (err) {
     console.error(err.message);
@@ -106,21 +116,26 @@ const getUsers = async (req, res) => {
 };
 
 // ==========================================
-// 4. ELIMINAR USUARIO
+// 4. CAMBIAR ESTATUS (ACTIVAR / DESACTIVAR)
 // ==========================================
 const deleteUser = async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await pool.query('DELETE FROM usuarios WHERE id = $1 RETURNING *', [id]);
+    // EL TRUCO: "SET activo = NOT activo" invierte el valor actual.
+    const result = await pool.query(
+        'UPDATE usuarios SET activo = NOT activo WHERE id = $1 RETURNING *', 
+        [id]
+    );
     
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
-    res.json({ message: 'Usuario eliminado correctamente' });
+    const nuevoEstado = result.rows[0].activo ? "Reactivado" : "Desactivado";
+    res.json({ message: `Usuario ${nuevoEstado} correctamente`, user: result.rows[0] });
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ error: 'Error al eliminar usuario' });
+    res.status(500).json({ error: 'Error al cambiar estatus del usuario' });
   }
 };
 

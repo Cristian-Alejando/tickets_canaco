@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { registerUser, deleteUser } from '../services/ticketService';
 
 export default function UsersList({ users, onUserUpdated }) { 
-  // onUserUpdated: Función que avisa a App.jsx que recargue la lista
   
   const [nuevoUsuario, setNuevoUsuario] = useState({
     nombre: '',
     email: '',
     password: '',
-    rol: 'tecnico' // Rol por defecto
+    rol: 'tecnico' 
   });
 
   const handleCrear = async (e) => {
@@ -21,19 +20,25 @@ export default function UsersList({ users, onUserUpdated }) {
             alert("❌ Error: " + res.error);
         } else {
             alert("✅ Usuario creado con éxito");
-            setNuevoUsuario({ nombre: '', email: '', password: '', rol: 'tecnico' }); // Limpiar formulario
-            if(onUserUpdated) onUserUpdated(); // ¡Recargar lista al instante!
+            setNuevoUsuario({ nombre: '', email: '', password: '', rol: 'tecnico' }); 
+            if(onUserUpdated) onUserUpdated(); 
         }
     }
   };
 
-  const handleBorrar = async (id, nombre) => {
-    if(window.confirm(`⚠️ PELIGRO: ¿Estás seguro de eliminar a ${nombre}?\n\nEsta acción no se puede deshacer y perderá su acceso inmediatamente.`)) {
+  // Esta función ahora sirve para ACTIVAR y DESACTIVAR
+  const handleToggleStatus = async (id, nombre, estaActivo) => {
+    const accion = estaActivo ? "DESACTIVAR" : "REACTIVAR";
+    const mensaje = estaActivo 
+        ? `⚠️ ¿Seguro que quieres quitar el acceso a ${nombre}?`
+        : `✅ ¿Quieres devolver el acceso a ${nombre}?`;
+
+    if(window.confirm(mensaje)) {
         const exito = await deleteUser(id);
         if(exito) {
             if(onUserUpdated) onUserUpdated(); // Recargar lista
         } else {
-            alert("❌ Error al eliminar. Revisa la consola.");
+            alert(`❌ Error al ${accion.toLowerCase()}.`);
         }
     }
   };
@@ -41,7 +46,7 @@ export default function UsersList({ users, onUserUpdated }) {
   return (
     <div className="animate-fade-in-up space-y-8">
       
-      {/* --- FORMULARIO DE ALTA --- */}
+      {/* FORMULARIO DE ALTA (Igual que antes) */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
         <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
             👤 Alta de Nuevo Personal
@@ -76,7 +81,7 @@ export default function UsersList({ users, onUserUpdated }) {
         </form>
       </div>
 
-      {/* --- TABLA DE USUARIOS --- */}
+      {/* TABLA DE USUARIOS */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 border-b border-gray-100 bg-gray-50">
             <h2 className="text-xl font-bold text-gray-800">Directorio de Accesos</h2>
@@ -87,31 +92,53 @@ export default function UsersList({ users, onUserUpdated }) {
             <tr className="bg-white text-gray-400 text-xs uppercase tracking-wider border-b">
               <th className="p-4 font-medium">Nombre</th>
               <th className="p-4 font-medium">Email</th>
-              <th className="p-4 font-medium text-center">Rol</th>
+              <th className="p-4 font-medium text-center">Rol / Estatus</th>
               <th className="p-4 font-medium text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {users.map(u => (
-              <tr key={u.id} className="hover:bg-blue-50 transition group">
-                <td className="p-4 font-bold text-gray-700">{u.nombre}</td>
-                <td className="p-4 text-gray-500">{u.email}</td>
-                <td className="p-4 text-center">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
-                    u.rol === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200'
-                  }`}>
-                    {u.rol === 'admin' ? 'ADMIN' : 'TÉCNICO'}
-                  </span>
-                </td>
-                <td className="p-4 text-right">
-                  <button onClick={() => handleBorrar(u.id, u.nombre)}
-                    className="text-gray-300 hover:text-red-600 font-bold text-sm transition-colors px-3 py-1 rounded hover:bg-red-50 border border-transparent hover:border-red-100"
-                    title="Eliminar usuario">
-                    🗑️ Borrar
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {users.map(u => {
+              const estaActivo = u.activo !== false; 
+
+              return (
+                <tr key={u.id} className={`transition group ${!estaActivo ? 'bg-gray-50' : 'hover:bg-blue-50'}`}>
+                  <td className="p-4 font-bold text-gray-700 flex flex-col">
+                    <span className={!estaActivo ? 'line-through text-gray-400' : ''}>{u.nombre}</span>
+                    {!estaActivo && <span className="text-[10px] text-red-500 font-bold uppercase">Desactivado</span>}
+                  </td>
+                  <td className={`p-4 ${!estaActivo ? 'text-gray-300' : 'text-gray-500'}`}>{u.email}</td>
+                  
+                  <td className="p-4 text-center">
+                    {estaActivo ? (
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                            u.rol === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200'
+                        }`}>
+                            {u.rol === 'admin' ? 'ADMIN' : 'TÉCNICO'}
+                        </span>
+                    ) : (
+                        <span className="px-3 py-1 rounded-full text-xs font-bold border bg-red-50 text-red-600 border-red-200">
+                            ⛔ BAJA
+                        </span>
+                    )}
+                  </td>
+
+                  <td className="p-4 text-right">
+                    {/* AQUÍ ESTÁ LA LÓGICA DEL BOTÓN CAMBIANTE */}
+                    <button 
+                        onClick={() => handleToggleStatus(u.id, u.nombre, estaActivo)}
+                        className={`font-bold text-sm transition-colors px-3 py-1 rounded border border-transparent 
+                            ${estaActivo 
+                                ? 'text-gray-400 hover:text-red-600 hover:bg-red-50 hover:border-red-100' 
+                                : 'text-green-600 hover:text-green-800 hover:bg-green-50 hover:border-green-200 bg-white border-green-100 shadow-sm'
+                            }`}
+                        title={estaActivo ? "Desactivar acceso" : "Reactivar acceso"}
+                    >
+                        {estaActivo ? '🚫 Desactivar' : '♻️ Reactivar'}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         

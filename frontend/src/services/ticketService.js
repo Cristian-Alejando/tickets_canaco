@@ -124,3 +124,16 @@ export const getMyVotes = async (userId) => {
     return [];
   }
 };
+
+export const deleteTicket = async (id) => {
+  try {
+    const response = await fetch(`${API_URL}/tickets/${id}`, {
+      method: 'DELETE',
+    });
+    const data = await response.json();
+    return { ok: response.ok, ...data };
+  } catch (error) {
+    console.error("Error al eliminar ticket:", error);
+    return { ok: false, error: "Error de conexión" };
+  }
+};

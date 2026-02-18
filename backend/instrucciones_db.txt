@@ -1,0 +1,107 @@
+===================================================
+ INSTRUCCIONES PARA LA BASE DE DATOS (CANACO)
+ ACTUALIZADO: 17/02/2026
+===================================================
+
+---------------------------------------------------
+ 0. PARCHES Y ACTUALIZACIONES (Si ya tienes la BD creada)
+---------------------------------------------------
+-- Ejecuta estos comandos SOLO si necesitas actualizar tu base de datos actual
+-- para soportar las nuevas funciones de hoy (Asignación y Soft-Delete).
+
+-- 1. Soporte para invitados (nombre y email en ticket)
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS nombre_contacto VARCHAR(100);
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS email_contacto VARCHAR(100);
+
+-- 2. Soporte para Asignación de Técnicos
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS asignado_a INTEGER REFERENCES usuarios(id) ON DELETE SET NULL;
+
+-- 3. Soporte para Teléfono de usuarios
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
+
+-- 4. Soporte para "Soft Delete" (Desactivar usuarios sin borrarlos)
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE;
+
+
+===================================================
+ 1. CREACIÓN DESDE CERO (Instalación Limpia)
+===================================================
+-- Ejecuta esto en orden si vas a borrar todo y empezar de nuevo.
+
+-- 1. Crear la Base de Datos
+-- Nombre: tickets_canaco
+
+-- 2. Crear Tablas Principales
+
+-- A) Tabla de Usuarios (Con soporte de activo y teléfono)
+CREATE TABLE usuarios (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL, -- Soporta texto plano (legacy) y bcrypt
+    rol VARCHAR(50) DEFAULT 'tecnico', -- admin, tecnico, empleado
+    telefono VARCHAR(20),             -- NUEVO: Para contacto directo
+    activo BOOLEAN DEFAULT TRUE       -- NUEVO: Para borrado lógico (soft delete)
+);
+
+-- B) Tabla de Tickets (Con asignación y contacto externo)
+CREATE TABLE tickets (
+    id SERIAL PRIMARY KEY,
+    titulo VARCHAR(200) NOT NULL,
+    descripcion TEXT,
+    ubicacion VARCHAR(150),
+    categoria VARCHAR(100),
+    estatus VARCHAR(50) DEFAULT 'abierto',
+    prioridad VARCHAR(50) DEFAULT 'media',
+    votos INTEGER DEFAULT 0,
+    comentarios TEXT,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    fecha_actualizacion TIMESTAMP,
+    fecha_cierre TIMESTAMP,
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL, -- Quién lo creó (si es interno)
+    
+    -- CAMPOS NUEVOS --
+    nombre_contacto VARCHAR(100), -- Para invitados (si usuario_id es NULL)
+    email_contacto VARCHAR(100),  -- Para invitados (si usuario_id es NULL)
+    asignado_a INTEGER REFERENCES usuarios(id) ON DELETE SET NULL -- Técnico responsable
+);
+
+-- C) Tabla de Historial de Votos
+CREATE TABLE votos_registro (
+    id SERIAL PRIMARY KEY,
+    ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+    UNIQUE(ticket_id, usuario_id)
+);
+
+===================================================
+ 3. USUARIOS INICIALES (Semilla)
+===================================================
+
+-- Usuario Admin Principal
+INSERT INTO usuarios (nombre, email, password, rol, telefono, activo)
+VALUES ('Administrador', 'admin@canaco.com', 'admin123', 'admin', '8112345678', TRUE);
+
+-- Usuario Técnico de Prueba
+INSERT INTO usuarios (nombre, email, password, rol, telefono, activo)
+VALUES ('Soporte TI', 'soporte@canaco.com', '123456', 'tecnico', '8187654321', TRUE);
+
+===================================================
+ NOTAS TÉCNICAS Y DESPLIEGUE (2026)
+===================================================
+
+1. SEGURIDAD & ACCESO:
+   - Contraseñas: El sistema usa bcryptjs. Si insertas manual por SQL, funcionará como texto plano (legacy support).
+   - Borrado de Usuarios: El sistema usa "Soft Delete". NO borra la fila, solo pone activo = FALSE.
+
+2. CONEXIÓN:
+   - Puerto Backend: 3000
+   - Base de Datos: PostgreSQL (Puerto 5432)
+
+3. VARIABLES DE ENTORNO (.env REQUERIDO):
+   DB_USER=postgres
+   DB_PASSWORD=tu_contraseña
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_NAME=tickets_canaco
+   JWT_SECRET=secreto_super_seguro
