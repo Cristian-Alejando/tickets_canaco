@@ -44,17 +44,16 @@ export default function CreateTicketForm({
                     <p className="text-sm font-bold text-blue-900">Solicitante: {usuario.nombre}</p>
                     <p className="text-xs text-blue-600">
                         {usuario.rol} • {usuario.email} 
-                        {/* AQUI: Mostramos el teléfono si lo tiene */}
-                        {usuario.telefono && ` • 📞 ${usuario.telefono}`}
+                        {/* Mostramos el departamento si el perfil lo tiene */}
+                        {usuario.departamento && ` • 🏢 ${usuario.departamento}`}
                     </p>
                 </div>
             </div>
         ) : (
-            /* CASO 2: PÚBLICO (Inputs de Nombre, Correo y TELÉFONO) */
+            /* CASO 2: PÚBLICO (Inputs de Nombre, Correo y DEPARTAMENTO) */
             <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">
                 <h3 className="text-xs font-bold text-gray-500 uppercase">Tus Datos de Contacto</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> 
-                    {/* CAMBIO: Grid de 3 columnas para que quepa el teléfono */}
                     
                     <div className="md:col-span-1">
                         <label className="block text-sm font-bold text-gray-700 mb-2">Tu Nombre *</label>
@@ -78,16 +77,29 @@ export default function CreateTicketForm({
                         />
                     </div>
 
-                    {/* --- NUEVO INPUT DE TELÉFONO --- */}
+                    {/* --- SUSTITUCIÓN DE TELÉFONO POR DEPARTAMENTO --- */}
                     <div className="md:col-span-1">
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Teléfono *</label>
-                        <input 
-                            type="tel" required
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Departamento *</label>
+                        <select 
+                            required
                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                            placeholder="Ej. 555-1234"
-                            value={formData.telefono_contacto || ''}
-                            onChange={e => setFormData({...formData, telefono_contacto: e.target.value})}
-                        />
+                            value={formData.departamento || ''}
+                            onChange={e => setFormData({...formData, departamento: e.target.value})}
+                        >
+                            <option value="" disabled>Selecciona...</option>
+                            <option value="Afiliación">Afiliación</option>
+                            <option value="SIEM">SIEM</option>
+                            <option value="Mercadotecnia">Mercadotecnia</option>
+                            <option value="Legal">Legal</option>
+                            <option value="Comunicación">Comunicación</option>
+                            <option value="Eventos">Eventos</option>
+                            <option value="Dirección">Dirección</option>
+                            <option value="Contabilidad">Contabilidad</option>
+                            <option value="Sistemas">Sistemas</option>
+                            <option value="Capital Humano">Capital Humano</option>
+                            <option value="Conciliación">Conciliación</option>
+                            <option value="Economía">Economía</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -133,16 +145,22 @@ export default function CreateTicketForm({
                 )}
             </div>
 
-            {/* --- SOLO MOSTRAMOS UBICACIÓN (Categoría Oculta) --- */}
+            {/* --- CAMBIO A SELECT PARA UBICACIÓN --- */}
             <div>
                  <label className="block text-sm font-bold text-gray-700 mb-2">Ubicación exacta</label>
-                 <input 
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
-                    placeholder="Ej: Piso 2, Oficina 3" 
-                    value={formData.ubicacion} 
+                 <select 
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white" 
+                    value={formData.ubicacion || ''} 
                     onChange={e => setFormData({...formData, ubicacion: e.target.value})} 
                     required
-                />
+                >
+                    <option value="" disabled>Selecciona tu piso o área...</option>
+                    <option value="Sótano">Sótano</option>
+                    <option value="Planta baja">Planta baja</option>
+                    <option value="Piso 1">Piso 1</option>
+                    <option value="Piso 2">Piso 2</option>
+                    <option value="Piso 3">Piso 3</option>
+                </select>
             </div>
 
             <div>

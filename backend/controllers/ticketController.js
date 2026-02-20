@@ -1,54 +1,61 @@
 const pool = require('../config/db'); // Importamos la conexión
 
 // ==========================================
-// 1. CREAR TICKET
+// 1. CREAR TICKET (¡ACTUALIZADO CON DEPARTAMENTO!)
 // ==========================================
 const createTicket = async (req, res) => {
-  const { titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto } = req.body;
+  // Recibimos 'departamento' desde el frontend
+  const { 
+    titulo, 
+    descripcion, 
+    categoria, 
+    prioridad, 
+    ubicacion, 
+    usuario_id, 
+    nombre_contacto, 
+    email_contacto,
+    departamento 
+  } = req.body;
 
   try {
     const newTicket = await pool.query(
-      `INSERT INTO tickets (titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      `INSERT INTO tickets (titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto, departamento, estatus) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Abierto') RETURNING *`,
       [
         titulo, 
         descripcion, 
         categoria || 'General', 
-        prioridad, 
+        prioridad || 'baja', 
         ubicacion, 
         usuario_id || null, 
         nombre_contacto,    
-        email_contacto      
+        email_contacto,
+        departamento // <-- NUEVO CAMPO
       ]
     );
     
-    // AQUÍ IRÁ EL CÓDIGO DE ENVÍO DE CORREO (Pendiente)
-    
+    // El ID del ticket para la respuesta
     res.json(newTicket.rows[0]);
   } catch (err) {
-    console.error(err.message);
+    console.error("Error al crear ticket:", err.message);
     res.status(500).send('Error al crear ticket');
   }
 };
 
 // ==========================================
-// 2. OBTENER TODOS (¡AHORA CON TÉCNICO ASIGNADO!)
+// 2. OBTENER TODOS (MOSTRANDO DEPARTAMENTO)
 // ==========================================
 const getAllTickets = async (req, res) => {
   try {
-    // CAMBIO IMPORTANTE: Doble LEFT JOIN
-    // 1. 'u' para saber quién creó el ticket (solicitante)
-    // 2. 'tech' para saber a quién se le asignó (técnico)
     const allTickets = await pool.query(`
       SELECT 
         t.*, 
         COALESCE(u.nombre, t.nombre_contacto) AS usuario_nombre,
         COALESCE(u.email, t.email_contacto) AS usuario_email,
-        u.telefono AS usuario_telefono,
-        tech.nombre AS tecnico_nombre  -- // NUEVO: Traemos el nombre del técnico
+        tech.nombre AS tecnico_nombre
       FROM tickets t
       LEFT JOIN usuarios u ON t.usuario_id = u.id
-      LEFT JOIN usuarios tech ON t.asignado_a = tech.id -- // NUEVO: Join con usuarios otra vez
+      LEFT JOIN usuarios tech ON t.asignado_a = tech.id
       ORDER BY t.fecha_creacion DESC
     `);
     
@@ -60,12 +67,21 @@ const getAllTickets = async (req, res) => {
 };
 
 // ==========================================
-// 3. ACTUALIZAR (Gestión + ASIGNACIÓN)
+// 3. ACTUALIZAR (Gestión + ASIGNACIÓN + DEPARTAMENTO)
 // ==========================================
 const updateTicket = async (req, res) => {
   const { id } = req.params;
-  // AHORA RECIBIMOS TAMBIÉN 'asignado_a'
-  const { titulo, descripcion, ubicacion, categoria, estatus, prioridad, comentarios, asignado_a } = req.body;
+  const { 
+    titulo, 
+    descripcion, 
+    ubicacion, 
+    categoria, 
+    estatus, 
+    prioridad, 
+    comentarios, 
+    asignado_a,
+    departamento // <-- También permitimos actualizar departamento si es necesario
+  } = req.body;
 
   try {
     const result = await pool.query(
@@ -77,10 +93,11 @@ const updateTicket = async (req, res) => {
            estatus = $5,
            prioridad = $6,
            comentarios = $7,
-           asignado_a = $8,  -- // NUEVO: Guardamos el ID del técnico
+           asignado_a = $8,
+           departamento = $9, -- <-- ACTUALIZADO
            fecha_actualizacion = NOW(),
            fecha_cierre = CASE WHEN $5::varchar = 'resuelto' THEN NOW() ELSE NULL END
-       WHERE id = $9 RETURNING *`,
+       WHERE id = $10 RETURNING *`,
       [
         titulo, 
         descripcion, 
@@ -89,8 +106,9 @@ const updateTicket = async (req, res) => {
         estatus, 
         prioridad, 
         comentarios, 
-        asignado_a, // // NUEVO: Pasamos el valor
-        id
+        asignado_a,
+        departamento, // $9
+        id            // $10
       ]
     );
 
@@ -106,7 +124,7 @@ const updateTicket = async (req, res) => {
 };
 
 // ==========================================
-// 4. VOTAR (Lógica Anti-Duplicados)
+// 4. VOTAR (Sin cambios necesarios)
 // ==========================================
 const voteTicket = async (req, res) => {
   const { id } = req.params;      

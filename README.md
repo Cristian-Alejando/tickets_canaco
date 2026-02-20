@@ -18,8 +18,8 @@ Sistema de gestión de tickets (Help Desk) diseñado para centralizar reportes, 
 Arquitectura
 -----------
 - Patrón: Modelo–Vista–Controlador (MVC).
-- Backend: Node.js + Express (API REST unificada).
-- Frontend: SPA en React, construcción con Vite.
+- Backend: Node.js + Express (API REST unificada con CORS dinámico en 0.0.0.0).
+- Frontend: SPA en React, construcción con Vite (Proxy inverso configurado para desarrollo).
 - BD: PostgreSQL (pg Pool).
 - Autenticación: bcryptjs con soporte híbrido para contraseñas legacy (migración segura).
 
@@ -29,7 +29,7 @@ Funcionalidades principales
 - Buzón público: creación de tickets por usuarios.
 - Panel administrativo: gestión de estatus, prioridad, usuarios y votos.
 - Sistema de votación para priorizar incidencias; prevención de votos duplicados.
-- Soporte de despliegue local y remoto mediante túneles seguros (ngrok).
+- Desarrollo colaborativo en vivo: soporte para múltiples redes locales e internet mediante túneles seguros (ngrok) interceptando HMR.
 - Backend sirve la build de frontend (producción).
 
 Estructura del proyecto
@@ -44,15 +44,16 @@ Estructura del proyecto
   - src/
     - components/  — UI reutilizable.
     - pages/       — Vistas (Login, Dashboard).
-    - services/    — Comunicación con la API.
-    - config.js    — URL del backend / configuración.
+    - services/    — Comunicación con la API (Headers anti-bloqueo configurados).
+    - config.js    — URL base de la API.
     - App.jsx
+  - vite.config.js — Configuración de Proxy interno e IPs permitidas.
   - package.json
 - docs/ (instrucciones, scripts SQL)
 
 Instalación y ejecución (Desarrollo)
 -----------------------------------
-Requisitos: Node.js, npm, PostgreSQL.
+Requisitos: Node.js, npm, PostgreSQL, cuenta de ngrok (Opcional para redes aisladas).
 
 1. Base de datos
    - Crear BD (ej. tickets_canaco) y ejecutar scripts SQL en docs/instrucciones_db.txt.
@@ -63,17 +64,31 @@ Requisitos: Node.js, npm, PostgreSQL.
    cd backend
    npm install
    # crear .env basado en .env.example (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET, PORT)
-   npm run dev   # usa nodemon (ver package.json)
+   npm run dev   # usa nodemon en el puerto 3000 (escuchando en 0.0.0.0)
    ```
-   Nota: el servidor sirve la carpeta build del frontend en producción desde ../frontend/dist
 
 3. Frontend
    ```bash
    cd frontend
    npm install
-   npm run dev -- --host   # Vite en modo desarrollo accesible en LAN
+   npm run dev
+   # o 'npm run dev -- --host' si deseas probar directamente con la IP local sin ngrok
    ```
-   - Actualizar frontend/src/config.js con la URL del backend (ej. http://192.168.x.x:3000 o el túnel ngrok).
+   **Importante:** El archivo `frontend/src/config.js` debe mantener `export const API_URL = '';`. Vite se encarga de redirigir las peticiones internamente al backend a través de la configuración de proxy en `vite.config.js`.
+
+Despliegue remoto seguro en vivo (ngrok)
+--------------------------------
+Para permitir que toda la oficina se conecte simultáneamente, independientemente de la red a la que estén conectados (Internet A, B, o datos móviles), usamos ngrok apuntando al servidor de desarrollo de Vite.
+
+1. Asegúrate de tener una cuenta activa en ngrok y el Authtoken configurado en tu terminal.
+2. Inicia tu Backend (`npm run dev`) y tu Frontend (`npm run dev`) en dos terminales separadas.
+3. Abre una tercera terminal y ejecuta:
+   ```bash
+   ngrok http 5173
+   ```
+4. Comparte la URL de "Forwarding" que genera ngrok. 
+
+*Nota: Las peticiones fetch en `ticketService.js` ya cuentan con el header `'ngrok-skip-browser-warning': 'true'` para evitar que el navegador bloquee la API en la primera visita.*
 
 Empaquetado y despliegue (Producción)
 -------------------------------------
@@ -91,14 +106,6 @@ Empaquetado y despliegue (Producción)
    node server.js
    ```
    - Opcional: usar PM2, Docker o un reverse proxy (nginx) para gestión en producción.
-
-Despliegue remoto seguro (ngrok)
---------------------------------
-- Para exponer localmente:
-  ```bash
-  ngrok http 3000
-  ```
-- Actualizar frontend/src/config.js con la URL pública devuelta por ngrok.
 
 Variables de entorno recomendadas (.env)
 ----------------------------------------
@@ -139,7 +146,7 @@ Buenas prácticas y seguridad
 Mantenimiento
 ------------
 - Mantener dependencia de Postgres activa antes de iniciar backend.
-- Actualizar frontend/src/config.js cuando cambie la URL del backend.
+- Ya no es necesario actualizar manualmente `frontend/src/config.js`. Si el puerto del backend cambia en un futuro, actualiza la propiedad proxy dentro de `frontend/vite.config.js`.
 - Revisar la integridad de la tabla votos_registro para evitar votos duplicados.
 
 Referencias rápidas
@@ -147,9 +154,7 @@ Referencias rápidas
 - backend/server.js
 - backend/config/db.js
 - backend/controllers/authController.js
-- backend/controllers/ticketController.js
-- backend/routes/authRoutes.js
-- backend/routes/ticketRoutes.js
+- frontend/vite.config.js
 - frontend/src/config.js
 - frontend/src/services/
 

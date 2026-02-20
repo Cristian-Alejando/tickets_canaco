@@ -1,11 +1,19 @@
 import { API_URL } from '../config'; // Asegúrate de que esto esté arriba
 
+// Cabecera para saltar la pantalla de advertencia de ngrok
+const ngrokHeaders = {
+  'ngrok-skip-browser-warning': 'true'
+};
+
 export const loginUser = async (credentials) => {
   try {
     // ESTA ES LA FORMA CORRECTA Y PROFESIONAL:
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...ngrokHeaders
+      },
       body: JSON.stringify(credentials),
     });
 
@@ -23,7 +31,10 @@ export const registerUser = async (userData) => {
   try {
     const response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...ngrokHeaders
+      },
       body: JSON.stringify(userData),
     });
     return await response.json();
@@ -36,7 +47,9 @@ export const registerUser = async (userData) => {
 // Obtener todos los usuarios
 export const getUsers = async () => {
   try {
-    const response = await fetch(`${API_URL}/auth/users`);
+    const response = await fetch(`${API_URL}/auth/users`, {
+      headers: { ...ngrokHeaders }
+    });
     // Validación extra para evitar errores si el backend falla
     if (!response.ok) return []; 
     return await response.json();
@@ -51,6 +64,7 @@ export const deleteUser = async (id) => {
   try {
     const response = await fetch(`${API_URL}/auth/users/${id}`, {
       method: 'DELETE',
+      headers: { ...ngrokHeaders }
     });
     return response.ok;
   } catch (error) {
@@ -65,7 +79,9 @@ export const deleteUser = async (id) => {
 
 export const getTickets = async () => {
   try {
-    const response = await fetch(`${API_URL}/tickets`);
+    const response = await fetch(`${API_URL}/tickets`, {
+      headers: { ...ngrokHeaders }
+    });
     return await response.json();
   } catch (error) {
     console.error("Error getting tickets:", error);
@@ -77,7 +93,10 @@ export const createTicket = async (ticketData) => {
   try {
     const response = await fetch(`${API_URL}/tickets`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...ngrokHeaders
+      },
       body: JSON.stringify(ticketData),
     });
     return { ok: response.ok };
@@ -91,7 +110,10 @@ export const updateTicket = async (id, updates) => {
   try {
     const response = await fetch(`${API_URL}/tickets/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...ngrokHeaders
+      },
       body: JSON.stringify(updates),
     });
     return { ok: response.ok };
@@ -105,7 +127,10 @@ export const voteTicket = async (ticketId, userId) => {
   try {
     const response = await fetch(`${API_URL}/tickets/${ticketId}/vote`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        ...ngrokHeaders
+      },
       body: JSON.stringify({ usuario_id: userId }),
     });
     return response; 
@@ -117,7 +142,9 @@ export const voteTicket = async (ticketId, userId) => {
 
 export const getMyVotes = async (userId) => {
   try {
-    const response = await fetch(`${API_URL}/tickets/mis-votos/${userId}`);
+    const response = await fetch(`${API_URL}/tickets/mis-votos/${userId}`, {
+      headers: { ...ngrokHeaders }
+    });
     return await response.json();
   } catch (error) {
     console.error("Error getting votes:", error);
@@ -129,6 +156,7 @@ export const deleteTicket = async (id) => {
   try {
     const response = await fetch(`${API_URL}/tickets/${id}`, {
       method: 'DELETE',
+      headers: { ...ngrokHeaders }
     });
     const data = await response.json();
     return { ok: response.ok, ...data };
