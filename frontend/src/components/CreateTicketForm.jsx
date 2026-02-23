@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function CreateTicketForm({ 
     onSubmit, 
@@ -12,10 +12,40 @@ export default function CreateTicketForm({
     usuario // <--- IMPORTANTE: Recibimos al usuario
 }) {
 
+  // --- NUEVO ESTADO PARA EL MODO ASISTENCIA ---
+  const [esParaOtro, setEsParaOtro] = useState(false); 
+
   // Fijar Categoría Automáticamente al cargar
   useEffect(() => {
     setFormData(prev => ({ ...prev, categoria: 'General' }));
   }, []);
+
+  // =================================================================
+  // 1. VALIDACIÓN EN TIEMPO REAL
+  // =================================================================
+  // Verificamos si los campos obligatorios tienen texto real (no solo espacios)
+  const isFormValid = 
+      (usuario && !esParaOtro) // Si es admin y es para sí mismo, solo valida lo de abajo
+      ? (formData.titulo?.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '') 
+      // Si es público o el admin activó el "Modo Asistencia", valida TODO
+      : (formData.nombre_contacto?.trim() !== '' && formData.email_contacto?.trim() !== '' && formData.departamento !== '' && formData.titulo?.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '');
+
+  // =================================================================
+  // 2. FUNCIÓN DE ENVÍO PERSONALIZADA (Intermedia)
+  // =================================================================
+  const handleLocalSubmit = (e) => {
+    e.preventDefault();
+    
+    // Si eres Admin y es para ti mismo, rellenamos tus datos.
+    // Si es para otro (o público), pegamos el @canaco.net
+    const dataToSend = (usuario && !esParaOtro) 
+      ? { ...formData, nombre_contacto: usuario.nombre, email_contacto: usuario.email, departamento: usuario.departamento || '' }
+      : { ...formData, email_contacto: `${formData.email_contacto}@canaco.net`, esParaOtro: esParaOtro };
+
+    // Llamamos a la función original que viene del padre (BuzonPage)
+    // Pasamos el evento 'e' y los datos modificados como segundo argumento
+    onSubmit(e, dataToSend); 
+  };
 
   return (
     <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 animate-fade-in-up">
@@ -29,60 +59,89 @@ export default function CreateTicketForm({
                 {usuario ? 'Nuevo Reporte Interno' : 'Nuevo Reporte'}
             </h2>
             <p className="text-gray-500">
-                {usuario ? 'Registrando ticket como Administrador.' : 'Describe el problema para que te ayudemos.'}
+                {usuario ? 'Registrando ticket desde el panel.' : 'Describe el problema para que te ayudemos.'}
             </p>
         </div>
         
         {/* --- SECCIÓN DE IDENTIDAD --- */}
         {usuario ? (
-            /* CASO 1: ADMIN (Tarjeta de Identificación) */
-            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex items-center gap-4">
-                <div className="bg-blue-200 text-blue-800 w-10 h-10 rounded-full flex items-center justify-center font-bold">
-                    {usuario.nombre ? usuario.nombre.charAt(0) : 'U'}
-                </div>
-                <div>
-                    <p className="text-sm font-bold text-blue-900">Solicitante: {usuario.nombre}</p>
-                    <p className="text-xs text-blue-600">
-                        {usuario.rol} • {usuario.email} 
-                        {/* Mostramos el departamento si el perfil lo tiene */}
-                        {usuario.departamento && ` • 🏢 ${usuario.departamento}`}
-                    </p>
+            /* CASO 1: ADMIN (Tarjeta de Identificación con Botón Mágico) */
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-blue-200 text-blue-800 w-10 h-10 rounded-full flex items-center justify-center font-bold">
+                            {usuario.nombre ? usuario.nombre.charAt(0) : 'U'}
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-blue-900">
+                                Solicitante: {esParaOtro ? 'Otro Colaborador' : usuario.nombre}
+                            </p>
+                            <p className="text-xs text-blue-600">
+                                {esParaOtro ? 'Modo asistencia' : `${usuario.rol} • ${usuario.email}`}
+                                {(!esParaOtro && usuario.departamento) && ` • 🏢 ${usuario.departamento}`}
+                            </p>
+                        </div>
+                    </div>
+                    {/* --- TOGGLE PARA MODO ASISTENCIA --- */}
+                    <button 
+                        type="button"
+                        onClick={() => setEsParaOtro(!esParaOtro)}
+                        className={`text-xs font-bold px-4 py-2 rounded-lg border transition whitespace-nowrap w-full sm:w-auto ${esParaOtro ? 'bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-200' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 shadow-sm'}`}
+                    >
+                        {esParaOtro ? '❌ Cancelar asistencia' : '📞 Reportar por otra persona'}
+                    </button>
                 </div>
             </div>
-        ) : (
-            /* CASO 2: PÚBLICO (Inputs de Nombre, Correo y DEPARTAMENTO) */
-            <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4">
-                <h3 className="text-xs font-bold text-gray-500 uppercase">Tus Datos de Contacto</h3>
+        ) : null}
+
+        {/* --- CASO 2: INPUTS DE CONTACTO (Solo se ven si no hay usuario logueado, o si el admin activó el modo asistencia) --- */}
+        {(!usuario || esParaOtro) && (
+            <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4 animate-fade-in-up">
+                <h3 className="text-xs font-bold text-gray-500 uppercase">
+                    {esParaOtro ? 'Datos del Colaborador Afectado' : 'Tus Datos de Contacto'}
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> 
                     
                     <div className="md:col-span-1">
                         <label className="block text-sm font-bold text-gray-700 mb-2">Tu Nombre *</label>
                         <input 
                             type="text" required 
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white transition-all"
                             placeholder="Ej. Juan Pérez"
                             value={formData.nombre_contacto || ''}
                             onChange={e => setFormData({...formData, nombre_contacto: e.target.value})}
                         />
                     </div>
                     
+                    {/* --- NUEVO CAMPO DE CORREO ESTILO INPUT GROUP --- */}
                     <div className="md:col-span-1">
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Tu Correo *</label>
-                        <input 
-                            type="email" required 
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                            placeholder="contacto@ejemplo.com"
-                            value={formData.email_contacto || ''}
-                            onChange={e => setFormData({...formData, email_contacto: e.target.value})}
-                        />
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Usuario Institucional *</label>
+                        <div className="flex border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 transition-all bg-white shadow-sm">
+                            <input 
+                                type="text"
+                                className="w-full p-3 outline-none text-gray-700"
+                                placeholder="usuario"
+                                value={formData.email_contacto || ''}
+                                // Aquí solo guardamos "cristian" o "juan", sin el @
+                                onChange={e => {
+                                    // Limpiamos si alguien intenta escribir el @ para evitar errores
+                                    const val = e.target.value.split('@')[0];
+                                    setFormData({...formData, email_contacto: val})
+                                }}
+                            />
+                            {/* --- ETIQUETA FIJA --- */}
+                            <span className="bg-gray-100 text-gray-500 font-bold px-3 py-3 flex items-center border-l border-gray-200 select-none text-sm">
+                                @canaco.net
+                            </span>
+                        </div>
                     </div>
 
-                    {/* --- SUSTITUCIÓN DE TELÉFONO POR DEPARTAMENTO --- */}
+                    {/* --- SELECT DE DEPARTAMENTO --- */}
                     <div className="md:col-span-1">
                         <label className="block text-sm font-bold text-gray-700 mb-2">Departamento *</label>
                         <select 
                             required
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white transition-all"
                             value={formData.departamento || ''}
                             onChange={e => setFormData({...formData, departamento: e.target.value})}
                         >
@@ -105,7 +164,8 @@ export default function CreateTicketForm({
             </div>
         )}
 
-        <form onSubmit={onSubmit} className="space-y-6">
+        {/* --- FORMULARIO PRINCIPAL (Usamos handleLocalSubmit) --- */}
+        <form onSubmit={handleLocalSubmit} className="space-y-6">
             <div className="relative">
                 <label className="block text-sm font-bold text-gray-700 mb-2">Título del problema</label>
                 <input 
@@ -145,7 +205,7 @@ export default function CreateTicketForm({
                 )}
             </div>
 
-            {/* --- CAMBIO A SELECT PARA UBICACIÓN --- */}
+            {/* --- SELECT PARA UBICACIÓN --- */}
             <div>
                  <label className="block text-sm font-bold text-gray-700 mb-2">Ubicación exacta</label>
                  <select 
@@ -165,15 +225,33 @@ export default function CreateTicketForm({
 
             <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Descripción detallada</label>
-                <textarea rows="4" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Explica qué sucede..." value={formData.descripcion} onChange={e => setFormData({...formData, descripcion: e.target.value})} required/>
+                <textarea 
+                    rows="4" 
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
+                    placeholder="Explica qué sucede..." 
+                    value={formData.descripcion} 
+                    onChange={e => setFormData({...formData, descripcion: e.target.value})} 
+                    required
+                />
             </div>
             
             <div className="flex gap-4 pt-4">
                 <button type="button" onClick={onCancel} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-3 rounded-lg font-bold transition">
                     {usuario ? 'Cancelar' : 'Limpiar Formulario'}
                 </button>
-                <button type="submit" className="flex-1 bg-blue-700 hover:bg-blue-800 text-white py-3 rounded-lg font-bold shadow-lg transition transform hover:scale-[1.02]">
-                    Enviar Reporte 🚀
+                
+                {/* --- BOTÓN DE ENVÍO INTELIGENTE --- */}
+                <button 
+                    type="submit" 
+                    // DESHABILITADO SI EL FORM NO ES VALIDO
+                    disabled={!isFormValid} 
+                    className={`flex-1 py-3 rounded-lg font-bold shadow-lg transition transform 
+                        ${(!isFormValid) 
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none' 
+                            : 'bg-blue-700 hover:bg-blue-800 text-white hover:scale-[1.02]' 
+                        }`}
+                >
+                    {(!isFormValid) ? 'Completa los campos...' : 'Enviar Reporte 🚀'}
                 </button>
             </div>
         </form>

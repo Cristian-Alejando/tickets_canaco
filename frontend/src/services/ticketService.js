@@ -89,6 +89,7 @@ export const getTickets = async () => {
   }
 };
 
+// --- AQUÍ ESTÁ EL CAMBIO MÁGICO PARA ATRAPAR EL ID ---
 export const createTicket = async (ticketData) => {
   try {
     const response = await fetch(`${API_URL}/tickets`, {
@@ -99,7 +100,15 @@ export const createTicket = async (ticketData) => {
       },
       body: JSON.stringify(ticketData),
     });
-    return { ok: response.ok };
+    
+    // Capturamos la respuesta del backend (que trae el ID recién creado)
+    const data = await response.json();
+    
+    // Devolvemos tanto el estado (ok) como el ID del ticket
+    return { 
+        ok: response.ok,
+        id: data.id 
+    };
   } catch (error) {
     console.error("Error creating ticket:", error);
     return { ok: false };

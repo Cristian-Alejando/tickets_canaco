@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { API_URL } from './config'
+import Swal from 'sweetalert2'; // <--- MAGIA VISUAL AGREGADA
 
 // Componentes
 import LoginPage from './pages/LoginPage'
@@ -11,6 +12,7 @@ import CreateTicketForm from './components/CreateTicketForm'
 import ConfigModal from './components/ConfigModal'
 import UsersList from './components/UsersList'
 import RegisterPage from './pages/RegisterPage' 
+import PublicBoardPage from './pages/PublicBoardPage' // <--- NUEVO COMPONENTE
 
 // Servicios
 import { 
@@ -26,7 +28,7 @@ function App() {
   // Estados de la app
   const [mostrandoLogin, setMostrandoLogin] = useState(false);
   const [formData, setFormData] = useState({ 
-      titulo: '', ubicacion: '', descripcion: '', categoria: 'Mantenimiento', prioridad: 'media',
+      titulo: '', ubicacion: '', descripcion: '', departamento: '', categoria: 'Mantenimiento', prioridad: 'media',
       nombre_contacto: '', email_contacto: '' 
   });
 
@@ -34,7 +36,6 @@ function App() {
   const [sugerencias, setSugerencias] = useState([]);
   const [ticketEditando, setTicketEditando] = useState(null); 
   
-  // MODIFICADO: Agregamos 'asignado_a' para controlar el técnico
   const [editData, setEditData] = useState({ estatus: '', comentarios: '', prioridad: 'media', asignado_a: '' });
   
   const [mostrarConfig, setMostrarConfig] = useState(false);
@@ -42,8 +43,9 @@ function App() {
 
   // Cargar datos iniciales
   useEffect(() => {
+    cargarTickets(); 
+
     if (usuario) { 
-        cargarTickets(); 
         cargarMisVotos();
         cargarUsuarios();
     }
@@ -64,33 +66,64 @@ function App() {
   const cargarMisVotos = async () => { try { const data = await getMyVotes(usuario.id); setMisVotos(data); } catch (e) {} };
   const cargarUsuarios = async () => { try { const data = await getUsers(); setListaUsuarios(data); } catch (e) {} };
 
-  // Crear Ticket
-  const handleCreateTicket = async (e) => {
+  // ==========================================
+  // CREAR TICKET (SOPORTA MODO ASISTENCIA)
+  // ==========================================
+  const handleCreateTicket = async (e, customData = null) => {
     e.preventDefault();
     try {
+      const datosBase = customData || formData; 
+
+      // --- EL CAMBIO ESTÁ AQUÍ ---
       const ticketAEnviar = {
-          ...formData,
+          ...datosBase,
+          // Siempre guarda quién inició sesión (tú o Daniel), así saben quién lo registró
           usuario_id: usuario ? usuario.id : null,
-          nombre_contacto: usuario ? usuario.nombre : formData.nombre_contacto,
-          email_contacto: usuario ? usuario.email : formData.email_contacto
+          // Si el admin activó 'esParaOtro', usamos los datos manuales, si no, usamos los del admin
+          nombre_contacto: (usuario && !datosBase.esParaOtro) ? usuario.nombre : datosBase.nombre_contacto,
+          email_contacto: (usuario && !datosBase.esParaOtro) ? usuario.email : datosBase.email_contacto,
+          departamento: (usuario && !datosBase.esParaOtro) ? usuario.departamento : datosBase.departamento
       };
 
       const res = await createTicket(ticketAEnviar);
       
       if (res.ok) {
-        alert(usuario ? "¡Ticket registrado correctamente!" : "¡Reporte enviado! Gracias.");
-        setFormData({ titulo: '', ubicacion: '', descripcion: '', categoria: 'Mantenimiento', prioridad: 'media', nombre_contacto: '', email_contacto: '' });
+        if (usuario) {
+            Swal.fire({
+                title: '¡Registrado!',
+                text: 'El ticket se guardó correctamente en el sistema.',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        } else {
+            Swal.fire({
+                title: '¡Reporte Enviado!',
+                html: `Tu número de folio es: <b>#${res.id}</b><br><br>Por favor, guárdalo para futuras consultas.`,
+                icon: 'success',
+                confirmButtonColor: '#1d4ed8',
+                confirmButtonText: 'Entendido',
+                customClass: { popup: 'rounded-2xl' }
+            });
+        }
+
+        setFormData({ titulo: '', ubicacion: '', descripcion: '', departamento: '', categoria: 'Mantenimiento', prioridad: 'media', nombre_contacto: '', email_contacto: '' });
         setSugerencias([]);
         
+        cargarTickets();
+        
         if (usuario) {
-            cargarTickets(); 
             navigate('/admin/dashboard');
         }
+      } else {
+          Swal.fire('Error', 'No se pudo enviar el reporte. Intenta de nuevo.', 'error');
       }
-    } catch (error) { console.error(error); alert("Error al crear reporte"); }
+    } catch (error) { 
+        console.error(error); 
+        Swal.fire('Error de conexión', 'Revisa tu internet y vuelve a intentarlo.', 'error');
+    }
   };
 
-  // Login y Logout
   const handleLoginSuccess = (u) => {
       setUsuario(u);
       navigate('/admin/dashboard');
@@ -108,13 +141,12 @@ function App() {
     const ticketOriginal = tickets.find(t => t.id === id); 
     if (!ticketOriginal) return; 
     
-    // MODIFICADO: Incluimos asignado_a al guardar
     const datosCompletos = { 
         ...ticketOriginal, 
         estatus: editData.estatus, 
         comentarios: editData.comentarios, 
         prioridad: editData.prioridad || ticketOriginal.prioridad || 'media',
-        asignado_a: editData.asignado_a // <--- AQUÍ SE GUARDA EL TÉCNICO
+        asignado_a: editData.asignado_a 
     }; 
     
     try { 
@@ -132,18 +164,16 @@ function App() {
   
   const iniciarEdicion = (t) => { 
       setTicketEditando(t.id); 
-      // MODIFICADO: Cargamos el técnico actual al abrir el editor
       setEditData({ 
           estatus: t.estatus || 'abierto', 
           comentarios: t.comentarios || '', 
           prioridad: t.prioridad || 'media', 
-          asignado_a: t.asignado_a || '' // <--- AQUÍ SE CARGA EL DATO
+          asignado_a: t.asignado_a || '' 
       }); 
   };
   
   const buscarSimilares = async (txt) => { setFormData(prev => ({ ...prev, titulo: txt })); if (txt.length < 3) { setSugerencias([]); return; } try { const res = await fetch(`${API_URL}/tickets/buscar?q=${txt}`); const data = await res.json(); setSugerencias(data); } catch (e) { console.error(e); } };
 
-  // Eliminar Ticket
   const handleDeleteTicket = async (id) => {
     try {
         const res = await deleteTicket(id);
@@ -189,16 +219,26 @@ function App() {
                             <img src="/logo_canaco_oficial.png" alt="Logo" className="h-24 mx-auto mb-4 object-contain" />
                             <h1 className="text-3xl font-bold text-blue-900">Buzón de Mantenimiento</h1>
                             <p className="text-gray-500 mt-2">Reporta incidencias para mejoras de CANACO</p>
+                            
+                            {/* --- BOTÓN NUEVO PARA IR AL TABLERO --- */}
+                            <button onClick={() => navigate('/tablero')} className="mt-6 px-8 py-3 bg-white text-blue-700 font-bold rounded-full shadow border border-blue-100 hover:bg-blue-50 transition flex items-center gap-2 mx-auto">
+                                👀 Ver Tablero Público de Reportes
+                            </button>
                         </div>
                         <CreateTicketForm 
                             onSubmit={handleCreateTicket} 
-                            onCancel={() => setFormData({titulo:'', ubicacion:'', descripcion:'', categoria:'Mantenimiento', prioridad:'media', nombre_contacto:'', email_contacto:''})} 
+                            onCancel={() => setFormData({titulo:'', ubicacion:'', descripcion:'', departamento:'', categoria:'Mantenimiento', prioridad:'media', nombre_contacto:'', email_contacto:''})} 
                             formData={formData} setFormData={setFormData} onSearch={buscarSimilares} sugerencias={sugerencias} onVoteSugerencia={handleVotar} misVotos={[]} 
                             usuario={null} 
                         />
                         <div className="mt-8 text-xs text-gray-400 text-center">© 2026 Cámara Nacional de Comercio Monterrey</div>
                     </div>
                 </div>
+            } />
+
+            {/* --- 1.5 NUEVA RUTA DEL TABLERO PÚBLICO --- */}
+            <Route path="/tablero" element={
+                <PublicBoardPage tickets={tickets} misVotos={misVotos} handleVotar={handleVotar} />
             } />
 
             {/* 2. LOGIN */}
@@ -227,7 +267,7 @@ function App() {
                                         isEditing={ticketEditando === t.id} 
                                         editData={editData} 
                                         setEditData={setEditData}
-                                        listaUsuarios={listaUsuarios} // <--- ¡AQUÍ ESTÁ LA PROPIEDAD AGREGADA!
+                                        listaUsuarios={listaUsuarios} 
                                         handlers={{
                                             onVote: handleVotar, 
                                             onEditStart: iniciarEdicion, 
@@ -261,7 +301,7 @@ function App() {
                                         isEditing={ticketEditando === t.id} 
                                         editData={editData} 
                                         setEditData={setEditData}
-                                        listaUsuarios={listaUsuarios} // <--- AQUÍ TAMBIÉN
+                                        listaUsuarios={listaUsuarios} 
                                         handlers={{
                                             onVote: handleVotar, 
                                             onEditStart: iniciarEdicion, 
