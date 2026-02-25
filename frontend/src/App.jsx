@@ -41,13 +41,19 @@ function App() {
   const [mostrarConfig, setMostrarConfig] = useState(false);
   const [listaUsuarios, setListaUsuarios] = useState([]);
 
-  // Cargar datos iniciales
+  // ==========================================
+  // CARGAR DATOS INICIALES (CORREGIDO PARA PÚBLICO)
+  // ==========================================
   useEffect(() => {
     cargarTickets(); 
 
     if (usuario) { 
         cargarMisVotos();
         cargarUsuarios();
+    } else {
+        // Si es usuario público, cargamos los votos guardados en el navegador
+        const votosLocales = JSON.parse(localStorage.getItem('votos_publicos')) || [];
+        setMisVotos(votosLocales);
     }
   }, [usuario]);
 
@@ -74,12 +80,9 @@ function App() {
     try {
       const datosBase = customData || formData; 
 
-      // --- EL CAMBIO ESTÁ AQUÍ ---
       const ticketAEnviar = {
           ...datosBase,
-          // Siempre guarda quién inició sesión (tú o Daniel), así saben quién lo registró
           usuario_id: usuario ? usuario.id : null,
-          // Si el admin activó 'esParaOtro', usamos los datos manuales, si no, usamos los del admin
           nombre_contacto: (usuario && !datosBase.esParaOtro) ? usuario.nombre : datosBase.nombre_contacto,
           email_contacto: (usuario && !datosBase.esParaOtro) ? usuario.email : datosBase.email_contacto,
           departamento: (usuario && !datosBase.esParaOtro) ? usuario.departamento : datosBase.departamento
@@ -134,8 +137,53 @@ function App() {
       navigate('/');
   };
 
-  // --- FUNCIONES DE GESTIÓN ---
-  const handleVotar = async (id, desdeSugerencia = false) => { if (!usuario) return; if (misVotos.includes(id)) return; try { const res = await voteTicket(id, usuario.id); if (res.ok) { cargarTickets(); setMisVotos([...misVotos, id]); if (desdeSugerencia) { alert("¡Voto registrado!"); setSugerencias([]); setFormData({...formData, titulo:''}); if(usuario) navigate('/admin/dashboard'); } } } catch (error) { console.error(error); } };
+  // ==========================================
+  // FUNCIÓN VOTAR (ACTUALIZADA PARA PÚBLICOS)
+  // ==========================================
+  const handleVotar = async (id, desdeSugerencia = false) => { 
+      // 1. Verificamos si ya votó (ya sea en su cuenta o en local)
+      if (misVotos.includes(id)) return; 
+
+      try { 
+          // 2. Si hay admin usamos su ID, si es público mandamos null
+          const userId = usuario ? usuario.id : null;
+          const res = await voteTicket(id, userId); 
+          
+          if (res.ok) { 
+              cargarTickets(); 
+              
+              // 3. Actualizamos la lista de tickets que ya votó
+              const nuevosVotos = [...misVotos, id];
+              setMisVotos(nuevosVotos); 
+              
+              // 4. Si es público, guardamos el voto en su navegador
+              if (!usuario) {
+                  localStorage.setItem('votos_publicos', JSON.stringify(nuevosVotos));
+              }
+
+              // 5. Alertas visuales
+              if (desdeSugerencia) { 
+                  Swal.fire('¡Voto registrado!', 'Gracias por confirmar este reporte.', 'success'); 
+                  setSugerencias([]); 
+                  setFormData({...formData, titulo:''}); 
+                  if(usuario) navigate('/admin/dashboard'); 
+              } else {
+                  Swal.fire({
+                      title: '¡Soporte notificado!',
+                      text: 'Sumamos tu confirmación a este reporte.',
+                      icon: 'success',
+                      timer: 2000,
+                      showConfirmButton: false
+                  });
+              }
+          } else {
+              Swal.fire('Aviso', 'No se pudo registrar el voto. Revisa tu conexión.', 'warning');
+          }
+      } catch (error) { 
+          console.error(error); 
+          Swal.fire('Error', 'Hubo un problema de conexión al registrar el voto.', 'error');
+      } 
+  };
   
   const guardarEdicion = async (id) => { 
     const ticketOriginal = tickets.find(t => t.id === id); 
@@ -228,7 +276,7 @@ function App() {
                         <CreateTicketForm 
                             onSubmit={handleCreateTicket} 
                             onCancel={() => setFormData({titulo:'', ubicacion:'', descripcion:'', departamento:'', categoria:'Mantenimiento', prioridad:'media', nombre_contacto:'', email_contacto:''})} 
-                            formData={formData} setFormData={setFormData} onSearch={buscarSimilares} sugerencias={sugerencias} onVoteSugerencia={handleVotar} misVotos={[]} 
+                            formData={formData} setFormData={setFormData} onSearch={buscarSimilares} sugerencias={sugerencias} onVoteSugerencia={handleVotar} misVotos={misVotos} 
                             usuario={null} 
                         />
                         <div className="mt-8 text-xs text-gray-400 text-center">© 2026 Cámara Nacional de Comercio Monterrey</div>
