@@ -21,14 +21,15 @@ export default function CreateTicketForm({
   }, []);
 
   // =================================================================
-  // 1. VALIDACIÓN EN TIEMPO REAL
+  // 1. VALIDACIÓN EN TIEMPO REAL (SIN EXIGIR CORREO)
   // =================================================================
   // Verificamos si los campos obligatorios tienen texto real (no solo espacios)
+  // SE QUITÓ email_contacto de la lista de campos obligatorios
   const isFormValid = 
       (usuario && !esParaOtro) // Si es admin y es para sí mismo, solo valida lo de abajo
       ? (formData.titulo?.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '') 
-      // Si es público o el admin activó el "Modo Asistencia", valida TODO
-      : (formData.nombre_contacto?.trim() !== '' && formData.email_contacto?.trim() !== '' && formData.departamento !== '' && formData.titulo?.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '');
+      // Si es público o el admin activó el "Modo Asistencia", valida TODO MENOS EL CORREO
+      : (formData.nombre_contacto?.trim() !== '' && formData.departamento !== '' && formData.titulo?.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '');
 
   // =================================================================
   // 2. FUNCIÓN DE ENVÍO PERSONALIZADA (Intermedia)
@@ -36,11 +37,17 @@ export default function CreateTicketForm({
   const handleLocalSubmit = (e) => {
     e.preventDefault();
     
+    // Si el usuario escribió un correo, le agregamos el @canaco.net
+    // Si lo dejó en blanco, lo mandamos como string vacío
+    const correoFinal = formData.email_contacto?.trim() 
+        ? `${formData.email_contacto}@canaco.net` 
+        : '';
+
     // Si eres Admin y es para ti mismo, rellenamos tus datos.
-    // Si es para otro (o público), pegamos el @canaco.net
+    // Si es para otro (o público), pegamos el correo validado arriba
     const dataToSend = (usuario && !esParaOtro) 
       ? { ...formData, nombre_contacto: usuario.nombre, email_contacto: usuario.email, departamento: usuario.departamento || '' }
-      : { ...formData, email_contacto: `${formData.email_contacto}@canaco.net`, esParaOtro: esParaOtro };
+      : { ...formData, email_contacto: correoFinal, esParaOtro: esParaOtro };
 
     // Llamamos a la función original que viene del padre (BuzonPage)
     // Pasamos el evento 'e' y los datos modificados como segundo argumento
@@ -113,9 +120,9 @@ export default function CreateTicketForm({
                         />
                     </div>
                     
-                    {/* --- NUEVO CAMPO DE CORREO ESTILO INPUT GROUP --- */}
+                    {/* --- CAMPO DE CORREO YA NO ES OBLIGATORIO Y SE QUITÓ LA PALABRA OPCIONAL --- */}
                     <div className="md:col-span-1">
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Usuario Institucional *</label>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Usuario Institucional</label>
                         <div className="flex border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 transition-all bg-white shadow-sm">
                             <input 
                                 type="text"
