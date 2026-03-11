@@ -7,7 +7,6 @@ const ngrokHeaders = {
 
 export const loginUser = async (credentials) => {
   try {
-    // ESTA ES LA FORMA CORRECTA Y PROFESIONAL:
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 
@@ -50,7 +49,6 @@ export const getUsers = async () => {
     const response = await fetch(`${API_URL}/auth/users`, {
       headers: { ...ngrokHeaders }
     });
-    // Validación extra para evitar errores si el backend falla
     if (!response.ok) return []; 
     return await response.json();
   } catch (error) {
@@ -89,22 +87,30 @@ export const getTickets = async () => {
   }
 };
 
-// --- AQUÍ ESTÁ EL CAMBIO MÁGICO PARA ATRAPAR EL ID ---
+// --- 👇 NUEVO: FUNCIÓN PARA ENVIAR TICKET + FOTO 👇 ---
 export const createTicket = async (ticketData) => {
   try {
+    // 1. Creamos un "paquete" especial llamado FormData para soportar archivos
+    const formData = new FormData();
+    
+    // 2. Metemos todos los datos (texto y foto) adentro del paquete
+    for (const key in ticketData) {
+      if (ticketData[key] !== null && ticketData[key] !== undefined && ticketData[key] !== '') {
+         formData.append(key, ticketData[key]);
+      }
+    }
+
     const response = await fetch(`${API_URL}/tickets`, {
       method: 'POST',
       headers: { 
-        'Content-Type': 'application/json',
+        // ⚠️ OJO: Quitamos el 'Content-Type'. El navegador lo pondrá solito al ver que es FormData
         ...ngrokHeaders
       },
-      body: JSON.stringify(ticketData),
+      body: formData, // Mandamos el paquete en lugar de JSON.stringify
     });
     
-    // Capturamos la respuesta del backend (que trae el ID recién creado)
     const data = await response.json();
     
-    // Devolvemos tanto el estado (ok) como el ID del ticket
     return { 
         ok: response.ok,
         id: data.id 
@@ -114,6 +120,7 @@ export const createTicket = async (ticketData) => {
     return { ok: false };
   }
 };
+// --- 👆 FIN DEL CAMBIO 👆 ---
 
 export const updateTicket = async (id, updates) => {
   try {

@@ -2,7 +2,7 @@ const pool = require('../config/db'); // Importamos la conexión
 const transporter = require('../config/mailer'); // <-- NUEVO: Importamos al cartero de Nodemailer
 
 // ==========================================
-// 1. CREAR TICKET 
+// 1. CREAR TICKET (¡AHORA CON EVIDENCIA!)
 // ==========================================
 const createTicket = async (req, res) => {
   const { 
@@ -17,10 +17,15 @@ const createTicket = async (req, res) => {
     departamento 
   } = req.body;
 
+  // 👇 NUEVO: Sacamos la ruta de la foto si es que el usuario subió una 👇
+  // Si req.file existe, armamos la ruta completa. Si no, lo dejamos como null.
+  const rutaEvidencia = req.file ? `/uploads/${req.file.filename}` : null;
+
   try {
     const newTicket = await pool.query(
-      `INSERT INTO tickets (titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto, departamento, estatus) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Abierto') RETURNING *`,
+      // 👇 NUEVO: Agregamos la columna 'evidencia' a la consulta SQL 👇
+      `INSERT INTO tickets (titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto, departamento, estatus, evidencia) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Abierto', $10) RETURNING *`,
       [
         titulo, 
         descripcion, 
@@ -30,7 +35,8 @@ const createTicket = async (req, res) => {
         usuario_id || null, 
         nombre_contacto,    
         email_contacto,
-        departamento 
+        departamento,
+        rutaEvidencia // <--- Pasamos la variable que contiene la ruta de la foto
       ]
     );
 

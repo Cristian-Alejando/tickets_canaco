@@ -23,12 +23,9 @@ export default function CreateTicketForm({
   // =================================================================
   // 1. VALIDACIÓN EN TIEMPO REAL (SIN EXIGIR CORREO)
   // =================================================================
-  // Verificamos si los campos obligatorios tienen texto real (no solo espacios)
-  // SE QUITÓ email_contacto de la lista de campos obligatorios
   const isFormValid = 
-      (usuario && !esParaOtro) // Si es admin y es para sí mismo, solo valida lo de abajo
+      (usuario && !esParaOtro) 
       ? (formData.titulo?.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '') 
-      // Si es público o el admin activó el "Modo Asistencia", valida TODO MENOS EL CORREO
       : (formData.nombre_contacto?.trim() !== '' && formData.departamento !== '' && formData.titulo?.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '');
 
   // =================================================================
@@ -37,20 +34,15 @@ export default function CreateTicketForm({
   const handleLocalSubmit = (e) => {
     e.preventDefault();
     
-    // Si el usuario escribió un correo, le agregamos el @canaco.net
-    // Si lo dejó en blanco, lo mandamos como string vacío
     const correoFinal = formData.email_contacto?.trim() 
         ? `${formData.email_contacto}@canaco.net` 
         : '';
 
-    // Si eres Admin y es para ti mismo, rellenamos tus datos.
-    // Si es para otro (o público), pegamos el correo validado arriba
     const dataToSend = (usuario && !esParaOtro) 
       ? { ...formData, nombre_contacto: usuario.nombre, email_contacto: usuario.email, departamento: usuario.departamento || '' }
       : { ...formData, email_contacto: correoFinal, esParaOtro: esParaOtro };
 
-    // Llamamos a la función original que viene del padre (BuzonPage)
-    // Pasamos el evento 'e' y los datos modificados como segundo argumento
+    // Llamamos a la función original que viene del padre
     onSubmit(e, dataToSend); 
   };
 
@@ -72,7 +64,6 @@ export default function CreateTicketForm({
         
         {/* --- SECCIÓN DE IDENTIDAD --- */}
         {usuario ? (
-            /* CASO 1: ADMIN (Tarjeta de Identificación con Botón Mágico) */
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col gap-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
@@ -101,7 +92,7 @@ export default function CreateTicketForm({
             </div>
         ) : null}
 
-        {/* --- CASO 2: INPUTS DE CONTACTO (Solo se ven si no hay usuario logueado, o si el admin activó el modo asistencia) --- */}
+        {/* --- CASO 2: INPUTS DE CONTACTO --- */}
         {(!usuario || esParaOtro) && (
             <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4 animate-fade-in-up">
                 <h3 className="text-xs font-bold text-gray-500 uppercase">
@@ -120,7 +111,6 @@ export default function CreateTicketForm({
                         />
                     </div>
                     
-                    {/* --- CAMPO DE CORREO YA NO ES OBLIGATORIO Y SE QUITÓ LA PALABRA OPCIONAL --- */}
                     <div className="md:col-span-1">
                         <label className="block text-sm font-bold text-gray-700 mb-2">Usuario Institucional</label>
                         <div className="flex border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 transition-all bg-white shadow-sm">
@@ -129,14 +119,11 @@ export default function CreateTicketForm({
                                 className="w-full p-3 outline-none text-gray-700"
                                 placeholder="usuario"
                                 value={formData.email_contacto || ''}
-                                // Aquí solo guardamos "cristian" o "juan", sin el @
                                 onChange={e => {
-                                    // Limpiamos si alguien intenta escribir el @ para evitar errores
                                     const val = e.target.value.split('@')[0];
                                     setFormData({...formData, email_contacto: val})
                                 }}
                             />
-                            {/* --- ETIQUETA FIJA --- */}
                             <span className="bg-gray-100 text-gray-500 font-bold px-3 py-3 flex items-center border-l border-gray-200 select-none text-sm">
                                 @canaco.net
                             </span>
@@ -171,7 +158,7 @@ export default function CreateTicketForm({
             </div>
         )}
 
-        {/* --- FORMULARIO PRINCIPAL (Usamos handleLocalSubmit) --- */}
+        {/* --- FORMULARIO PRINCIPAL --- */}
         <form onSubmit={handleLocalSubmit} className="space-y-6">
             <div className="relative">
                 <label className="block text-sm font-bold text-gray-700 mb-2">Título del problema</label>
@@ -241,16 +228,74 @@ export default function CreateTicketForm({
                     required
                 />
             </div>
+
+            {/* 👇👇👇 NUEVO: ZONA DE SUBIDA Y TOMA DE EVIDENCIA (DOS BOTONES) 👇👇👇 */}
+            <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Evidencia Visual (Opcional)</label>
+                <div className="flex flex-col sm:flex-row gap-4 w-full">
+                    
+                    {/* BOTÓN 1: TOMAR FOTO (Usa capture="environment" para abrir la cámara directo en móviles) */}
+                    <label className="flex-1 flex flex-col items-center justify-center h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-all">
+                        <span className="text-2xl mb-1">📷</span>
+                        <span className="text-sm text-gray-600 font-semibold">Tomar Foto</span>
+                        <input 
+                            type="file" 
+                            className="hidden" 
+                            accept="image/*"
+                            capture="environment" 
+                            onChange={(e) => {
+                                const file = e.target.files[0];
+                                if(file) setFormData({...formData, evidencia: file});
+                            }} 
+                        />
+                    </label>
+
+                    {/* BOTÓN 2: SUBIR ARCHIVO DE LA GALERÍA/PC */}
+                    <label className="flex-1 flex flex-col items-center justify-center h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-all">
+                        <span className="text-2xl mb-1">📁</span>
+                        <span className="text-sm text-gray-600 font-semibold">Subir Archivo</span>
+                        <input 
+                            type="file" 
+                            className="hidden" 
+                            accept="image/png, image/jpeg, image/jpg"
+                            onChange={(e) => {
+                                const file = e.target.files[0];
+                                if(file) setFormData({...formData, evidencia: file});
+                            }} 
+                        />
+                    </label>
+
+                </div>
+
+                {/* Mostramos esto si el usuario ya seleccionó/tomó una foto */}
+                {formData.evidencia && (
+                    <div className="mt-3 bg-green-50 text-green-700 px-4 py-3 rounded-lg border border-green-200 text-sm font-bold flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                            <span>✅</span>
+                            <span className="truncate max-w-[200px] md:max-w-[300px]">
+                                {formData.evidencia.name}
+                            </span>
+                        </div>
+                        <button 
+                            type="button" 
+                            className="text-red-500 hover:text-red-700 font-semibold text-xs bg-white px-3 py-1.5 rounded shadow-sm border border-red-100 transition-colors"
+                            onClick={() => setFormData({...formData, evidencia: null})}
+                        >
+                            Quitar
+                        </button>
+                    </div>
+                )}
+            </div>
+            {/* 👆👆👆 FIN DE ZONA DE SUBIDA DE EVIDENCIA 👆👆👆 */}
             
-            <div className="flex gap-4 pt-4">
+            <div className="flex gap-4 pt-6">
                 <button type="button" onClick={onCancel} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-3 rounded-lg font-bold transition">
-                    {usuario ? 'Cancelar' : 'Limpiar Formulario'}
+                    {usuario ? 'Cancelar' : 'Limpiar'}
                 </button>
                 
                 {/* --- BOTÓN DE ENVÍO INTELIGENTE --- */}
                 <button 
                     type="submit" 
-                    // DESHABILITADO SI EL FORM NO ES VALIDO
                     disabled={!isFormValid} 
                     className={`flex-1 py-3 rounded-lg font-bold shadow-lg transition transform 
                         ${(!isFormValid) 

@@ -1,4 +1,5 @@
 import { calcularDias, formatearFecha } from '../utils/format';
+import { API_URL } from '../config'; // <--- NUEVO: Importamos la URL de tu backend para encontrar la foto
 
 export default function TicketCard({ 
   ticket, 
@@ -7,7 +8,7 @@ export default function TicketCard({
   isEditing, 
   editData, 
   setEditData, 
-  listaUsuarios, // <--- Recibimos la lista
+  listaUsuarios, 
   handlers 
 }) {
   
@@ -44,7 +45,6 @@ export default function TicketCard({
                    'bg-green-100 text-green-600 border-green-100'
                 }`}>{(ticket.estatus || '').replace('_', ' ')}</span>
                 
-                {/* --- NUEVO: Mostrar Técnico Asignado --- */}
                 {ticket.tecnico_nombre && (
                     <span className="text-xs font-bold bg-purple-100 text-purple-700 px-3 py-1 rounded-full border border-purple-200 flex items-center gap-1">
                         👷‍♂️ {ticket.tecnico_nombre}
@@ -57,6 +57,31 @@ export default function TicketCard({
             <h3 className="font-bold text-xl text-gray-800 mb-2">{ticket.titulo}</h3>
             <p className="text-gray-600 text-sm mb-4 leading-relaxed">{ticket.descripcion}</p>
             
+            {/* 👇 NUEVO: SECCIÓN DE EVIDENCIA VISUAL 👇 */}
+            {ticket.evidencia && (
+              <div className="mb-5 bg-gray-50 border border-gray-200 rounded-xl p-3 inline-block">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  📸 Evidencia Adjunta:
+                </p>
+                <a 
+                  href={`${API_URL}${ticket.evidencia}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="block overflow-hidden rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all relative group cursor-zoom-in max-w-sm"
+                >
+                  <img 
+                    src={`${API_URL}${ticket.evidencia}`} 
+                    alt="Evidencia del reporte" 
+                    className="w-full h-auto max-h-48 object-cover group-hover:opacity-90 transition-opacity" 
+                  />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="bg-white text-gray-800 text-xs font-bold px-3 py-1 rounded-full shadow">Ver foto completa</span>
+                  </div>
+                </a>
+              </div>
+            )}
+            {/* 👆 FIN SECCIÓN DE EVIDENCIA 👆 */}
+
             <div className="flex flex-wrap gap-2 mb-4">
                 <div className="flex items-center gap-2 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">
                     <span>📍</span> {ticket.ubicacion}
@@ -93,7 +118,7 @@ export default function TicketCard({
 
             {ticket.estatus === 'resuelto' && ticket.fecha_cierre && (
               <div className="mt-4 text-xs text-green-800 font-semibold bg-green-50 px-3 py-2 rounded-lg border border-green-100 inline-block">
-                  🏁 Finalizado el: {formatearFecha(ticket.fecha_cierre)}
+                 🏁 Finalizado el: {formatearFecha(ticket.fecha_cierre)}
               </div>
             )}
 
@@ -163,7 +188,6 @@ export default function TicketCard({
               </select>
             </div>
 
-            {/* --- NUEVO: SELECTOR DE TÉCNICO --- */}
             <div>
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Asignar Responsable</label>
               <select 
@@ -172,7 +196,6 @@ export default function TicketCard({
                 onChange={e => setEditData({...editData, asignado_a: e.target.value})}
               >
                 <option value="">-- Sin Asignar --</option>
-                {/* Filtramos para mostrar solo Admins y Técnicos */}
                 {listaUsuarios && listaUsuarios
                     .filter(u => u.rol === 'admin' || u.rol === 'tecnico')
                     .map(u => (
@@ -183,7 +206,6 @@ export default function TicketCard({
                 }
               </select>
             </div>
-            {/* ---------------------------------- */}
           </div>
           
           <div className="mb-4">
