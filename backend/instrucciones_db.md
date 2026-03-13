@@ -1,14 +1,14 @@
-===================================================
- INSTRUCCIONES PARA LA BASE DE DATOS (CANACO)
- ACTUALIZADO: 17/02/2026
-===================================================
+# 🗄️ Instrucciones para la Base de Datos (CANACO)
+> **Última actualización:** 17 de Febrero de 2026
 
----------------------------------------------------
- 0. PARCHES Y ACTUALIZACIONES (Si ya tienes la BD creada)
----------------------------------------------------
--- Ejecuta estos comandos SOLO si necesitas actualizar tu base de datos actual
--- para soportar las nuevas funciones de hoy (Asignación y Soft-Delete).
+Este documento contiene los scripts SQL necesarios para actualizar una base de datos existente o crear una nueva desde cero para el sistema de **Tickets CANACO**.
 
+---
+
+## 🛠️ 0. Parches y Actualizaciones
+*Ejecuta estos comandos **SOLO** si necesitas actualizar tu base de datos actual para soportar las nuevas funciones (Asignación de tickets, Soft-Delete, etc).*
+
+```sql
 -- 1. Soporte para invitados (nombre y email en ticket)
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS nombre_contacto VARCHAR(100);
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS email_contacto VARCHAR(100);
@@ -21,18 +21,20 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
 
 -- 4. Soporte para "Soft Delete" (Desactivar usuarios sin borrarlos)
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE;
+```
 
+---
 
-===================================================
- 1. CREACIÓN DESDE CERO (Instalación Limpia)
-===================================================
--- Ejecuta esto en orden si vas a borrar todo y empezar de nuevo.
+## 🚀 1. Creación desde Cero (Instalación Limpia)
+*Ejecuta estos comandos en orden si vas a borrar todo y empezar una instalación nueva.*
 
--- 1. Crear la Base de Datos
--- Nombre: tickets_canaco
+### Paso 1: Crear la Base de Datos
+```sql
+CREATE DATABASE tickets_canaco;
+```
 
--- 2. Crear Tablas Principales
-
+### Paso 2: Crear Tablas Principales
+```sql
 -- A) Tabla de Usuarios (Con soporte de activo y teléfono)
 CREATE TABLE usuarios (
     id SERIAL PRIMARY KEY,
@@ -58,26 +60,29 @@ CREATE TABLE tickets (
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_actualizacion TIMESTAMP,
     fecha_cierre TIMESTAMP,
-    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL, -- Quién lo creó (si es interno)
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL, 
     
     -- CAMPOS NUEVOS --
-    nombre_contacto VARCHAR(100), -- Para invitados (si usuario_id es NULL)
-    email_contacto VARCHAR(100),  -- Para invitados (si usuario_id es NULL)
-    asignado_a INTEGER REFERENCES usuarios(id) ON DELETE SET NULL -- Técnico responsable
+    nombre_contacto VARCHAR(100), 
+    email_contacto VARCHAR(100),  
+    asignado_a INTEGER REFERENCES usuarios(id) ON DELETE SET NULL 
 );
 
--- C) Tabla de Historial de Votos
+-- C) Tabla de Historial de Votos (Previene votos duplicados)
 CREATE TABLE votos_registro (
     id SERIAL PRIMARY KEY,
     ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
     usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
     UNIQUE(ticket_id, usuario_id)
 );
+```
 
-===================================================
- 3. USUARIOS INICIALES (Semilla)
-===================================================
+---
 
+## 🌱 2. Usuarios Iniciales (Semilla)
+*Cuentas por defecto para acceder al panel administrativo por primera vez.*
+
+```sql
 -- Usuario Admin Principal
 INSERT INTO usuarios (nombre, email, password, rol, telefono, activo)
 VALUES ('Administrador', 'admin@canaco.com', 'admin123', 'admin', '8112345678', TRUE);
@@ -85,23 +90,27 @@ VALUES ('Administrador', 'admin@canaco.com', 'admin123', 'admin', '8112345678', 
 -- Usuario Técnico de Prueba
 INSERT INTO usuarios (nombre, email, password, rol, telefono, activo)
 VALUES ('Soporte TI', 'soporte@canaco.com', '123456', 'tecnico', '8187654321', TRUE);
+```
 
-===================================================
- NOTAS TÉCNICAS Y DESPLIEGUE (2026)
-===================================================
+---
 
-1. SEGURIDAD & ACCESO:
-   - Contraseñas: El sistema usa bcryptjs. Si insertas manual por SQL, funcionará como texto plano (legacy support).
-   - Borrado de Usuarios: El sistema usa "Soft Delete". NO borra la fila, solo pone activo = FALSE.
+## 📌 Notas Técnicas y Despliegue
 
-2. CONEXIÓN:
-   - Puerto Backend: 3000
-   - Base de Datos: PostgreSQL (Puerto 5432)
+### 🔒 Seguridad y Acceso
+- **Contraseñas**: El sistema utiliza `bcryptjs`. Si insertas usuarios manualmente con código SQL (como en el paso anterior), el sistema los detectará como texto plano temporalmente gracias al soporte *legacy*, y los encriptará automáticamente cuando inicien sesión.
+- **Borrado de Usuarios**: El sistema utiliza **"Soft Delete"**. Al eliminar un usuario en el panel, NO se borra la fila de la base de datos para no perder su historial de tickets, solo se actualiza su estado a `activo = FALSE`.
 
-3. VARIABLES DE ENTORNO (.env REQUERIDO):
-   DB_USER=postgres
-   DB_PASSWORD=tu_contraseña
-   DB_HOST=localhost
-   DB_PORT=5432
-   DB_NAME=tickets_canaco
-   JWT_SECRET=secreto_super_seguro
+### 🔌 Conexión Local
+- **Puerto Backend**: `3000`
+- **Base de Datos**: `PostgreSQL` (Puerto `5432`)
+
+### ⚙️ Variables de Entorno Requeridas (`.env`)
+Asegúrate de crear tu archivo `.env` en la carpeta `/backend` con la siguiente estructura:
+```env
+DB_USER=postgres
+DB_PASSWORD=tu_contraseña
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=tickets_canaco
+JWT_SECRET=secreto_super_seguro
+```
