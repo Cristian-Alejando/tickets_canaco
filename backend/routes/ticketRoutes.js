@@ -1,5 +1,6 @@
 const router = require('express').Router();
-const multer = require('multer'); // <-- 1. IMPORTAMOS MULTER
+const multer = require('multer');
+const sharp = require('sharp'); // <-- 1. IMPORTAMOS SHARP (La licuadora de imágenes)
 const path = require('path');
 
 const { 
@@ -12,21 +13,69 @@ const {
   deleteTicket 
 } = require('../controllers/ticketController');
 
-// --- 2. CONFIGURACIÓN DE MULTER (EL GUARDIA DE LAS FOTOS) ---
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/'); // Aquí le decimos que las guarde en tu nueva carpeta
-  },
-  filename: function (req, file, cb) {
-    // Le ponemos la fecha exacta + un número al azar para que el nombre sea 100% único
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const extension = path.extname(file.originalname); // Sacamos si es .png, .jpg, etc.
-    cb(null, 'ticket-' + uniqueSuffix + extension); 
+// --- 2. CONFIGURACIÓN DE MULTER (ALTO RENDIMIENTO EN RAM) ---
+// En lugar de guardar en disco, lo retenemos en la memoria para procesarlo al vuelo con Sharp. Esto es mucho más rápido y eficiente.
+const storage = multer.memoryStorage();
+
+// Filtro estricto: Solo dejamos pasar imágenes reales, nada de PDFs o EXEs disfrazados. Esto mejora la seguridad y evita errores en Sharp.
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Formato no soportado. Solo se permiten imágenes.'), false);
   }
+};
+
+// Inicializamos el middleware con límite de peso (15MB)
+const upload = multer({ 
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: { fileSize: 15 * 1024 * 1024 } 
 });
 
-// Inicializamos el middleware
-const upload = multer({ storage: storage });
+// --- NUEVO: ENVOLTORIO PARA ATRAPAR ERRORES DE MULTER ---
+// Este middleware intercepta los errores de Multer antes de que rompan el servidor
+const atraparErroresMulter = (req, res, next) => {
+  const uploadMiddleware = upload.single('evidencia');
+  
+  uploadMiddleware(req, res, function (err) {
+    if (err instanceof multer.MulterError) {
+      // Error propio de Multer (ej. el archivo pesa más de los 15MB permitidos)
+      return res.status(400).json({ error: 'La imagen es demasiado pesada. Máximo 15MB.' });
+    } else if (err) {
+      // Error de nuestro filtro (ej. intentaron subir un PDF o un EXE)
+      return res.status(400).json({ error: err.message });
+    }
+    // Si no hubo ningún error, continuamos al siguiente paso (Sharp)
+    next();
+  });
+};
+
+// --- 3. MOTOR DE COMPRESIÓN (SHARP) ---
+const optimizarImagen = async (req, res, next) => {
+  if (!req.file) return next(); // Si no mandaron foto, seguimos de largo
+
+  try {
+    // Generamos el nombre único con extensión .webp (formato súper ligero)
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const filename = `ticket-${uniqueSuffix}.webp`;
+    const filepath = path.join(__dirname, '../uploads', filename);
+
+    // Agarramos la foto flotante de la RAM, la achicamos y la guardamos en el disco
+    await sharp(req.file.buffer)
+      .resize({ width: 1000, withoutEnlargement: true }) // Máximo 1000px de ancho
+      .webp({ quality: 80 }) // Compresión moderna
+      .toFile(filepath); 
+
+    // Engañamos a tu controlador original pasándole el nombre de la nueva foto
+    req.file.filename = filename;
+    
+    next(); // Brincamos a createTicket
+  } catch (error) {
+    console.error("❌ Error en Sharp:", error);
+    next(); // Si algo falla, el ticket se crea de todos modos sin foto
+  }
+};
 
 // IMPORTANTE: En server.js ya definimos que todo esto vive bajo '/tickets'.
 
@@ -34,8 +83,8 @@ const upload = multer({ storage: storage });
 router.get('/', getAllTickets);
 
 // 2. Crear nuevo (POST /tickets)
-// <-- 3. AQUÍ LE INYECTAMOS MULTER. Le decimos que espere UN archivo llamado 'evidencia'
-router.post('/', upload.single('evidencia'), createTicket);
+// <-- 4. LA MAGIA OCURRE AQUÍ: Atrapa Errores -> Pasa por Sharp (Comprime) -> createTicket (Guarda en BD)
+router.post('/', atraparErroresMulter, optimizarImagen, createTicket);
 
 // 3. Buscar (GET /tickets/buscar)
 router.get('/buscar', searchTickets);

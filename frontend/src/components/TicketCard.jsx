@@ -1,5 +1,12 @@
 import { calcularDias, formatearFecha } from '../utils/format';
-import { API_URL } from '../config'; // <--- NUEVO: Importamos la URL de tu backend para encontrar la foto
+import { API_URL } from '../config'; 
+import { motion } from 'framer-motion'; // <-- NUEVO: Importamos Framer Motion
+
+// <-- NUEVO: Definimos la animación de entrada
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
+};
 
 export default function TicketCard({ 
   ticket, 
@@ -21,7 +28,14 @@ export default function TicketCard({
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition relative overflow-hidden group">
+    // <-- NUEVO: Cambiamos <div> por <motion.div> y le aplicamos las variantes
+    <motion.div 
+      variants={cardVariants}
+      initial="hidden"
+      animate="visible"
+      whileHover={{ scale: 1.01, transition: { duration: 0.2 } }} // <-- Efecto sutil de levantamiento
+      className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition relative overflow-hidden group"
+    >
       <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
           ticket.estatus === 'abierto' ? 'bg-orange-400' :
           ticket.estatus === 'en_proceso' ? 'bg-blue-500' : 
@@ -57,7 +71,7 @@ export default function TicketCard({
             <h3 className="font-bold text-xl text-gray-800 mb-2">{ticket.titulo}</h3>
             <p className="text-gray-600 text-sm mb-4 leading-relaxed">{ticket.descripcion}</p>
             
-            {/* 👇 NUEVO: SECCIÓN DE EVIDENCIA VISUAL 👇 */}
+            {/* SECCIÓN DE EVIDENCIA VISUAL */}
             {ticket.evidencia && (
               <div className="mb-5 bg-gray-50 border border-gray-200 rounded-xl p-3 inline-block">
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
@@ -80,7 +94,6 @@ export default function TicketCard({
                 </a>
               </div>
             )}
-            {/* 👆 FIN SECCIÓN DE EVIDENCIA 👆 */}
 
             <div className="flex flex-wrap gap-2 mb-4">
                 <div className="flex items-center gap-2 text-sm text-blue-600 font-medium bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">
@@ -163,7 +176,12 @@ export default function TicketCard({
         </div>
       ) : (
         // --- MODO EDICIÓN ---
-        <div className="bg-blue-50/50 p-6 rounded-xl border border-blue-100 relative">
+        // <-- NUEVO: También animamos la transición al modo edición
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-blue-50/50 p-6 rounded-xl border border-blue-100 relative"
+        >
           <h4 className="font-bold text-blue-900 mb-4 text-lg">🛠️ Gestionar Ticket</h4>
           
           {usuario.rol === 'admin' && (
@@ -217,8 +235,8 @@ export default function TicketCard({
             <button onClick={onEditCancel} className="text-sm text-gray-500 px-4 py-2 hover:bg-gray-100 rounded-lg font-medium transition">Cancelar</button>
             <button onClick={() => onEditSave(ticket.id)} className="bg-green-600 text-white text-sm px-6 py-2 rounded-lg font-bold hover:bg-green-700 shadow-lg transition">💾 Guardar Cambios</button>
           </div>
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { API_URL } from './config';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
+import { Toaster, toast } from 'react-hot-toast'; // <-- NUEVO: Importamos el sistema de notificaciones modernas
 
 // --- LIBRERÍAS DE GRÁFICAS (FASE 2) ---
 import { 
@@ -132,13 +133,7 @@ function App() {
 
       if (res.ok) {
         if (usuario) {
-          Swal.fire({
-            title: '¡Registrado!',
-            text: 'El ticket se guardó correctamente.',
-            icon: 'success',
-            timer: 2000,
-            showConfirmButton: false
-          });
+          toast.success('Ticket guardado correctamente'); // <-- NUEVO: Toast en vez de Swal para que sea más rápido
         } else {
           Swal.fire({
             title: '¡Reporte Enviado!',
@@ -167,23 +162,25 @@ function App() {
           navigate('/admin/dashboard');
         }
       } else {
-        Swal.fire('Error', 'No se pudo enviar el reporte. Intenta de nuevo.', 'error');
+        toast.error('No se pudo enviar el reporte. Revisa el archivo adjunto.');
       }
     } catch (error) {
       console.error(error);
-      Swal.fire('Error de conexión', 'Revisa tu internet.', 'error');
+      toast.error('Error de conexión. Revisa tu internet.');
     }
   };
 
   const handleLoginSuccess = (u) => {
     setUsuario(u);
     localStorage.setItem('sesion_admin_canaco', JSON.stringify(u));
+    toast.success(`¡Bienvenido de nuevo, ${u.nombre}!`); // <-- NUEVO: Saludo al iniciar sesión
     navigate('/admin/dashboard');
   };
 
   const handleLogout = () => {
     setUsuario(null);
     localStorage.removeItem('sesion_admin_canaco');
+    toast('Sesión cerrada correctamente', { icon: '👋' }); // <-- NUEVO: Despedida
     navigate('/');
   };
 
@@ -204,27 +201,19 @@ function App() {
         }
 
         if (desdeSugerencia) {
-          Swal.fire('¡Voto registrado!', 'Gracias por confirmar.', 'success');
+          toast.success('¡Voto registrado! Gracias por confirmar.');
           setSugerencias([]);
           setFormData({ ...formData, titulo: '' });
-          if (usuario) {
-            navigate('/admin/dashboard');
-          }
+          if (usuario) navigate('/admin/dashboard');
         } else {
-          Swal.fire({
-            title: '¡Soporte notificado!',
-            text: 'Sumamos tu confirmación a este reporte.',
-            icon: 'success',
-            timer: 2000,
-            showConfirmButton: false
-          });
+          toast.success('¡Soporte notificado! Sumamos tu confirmación.');
         }
       } else {
-        Swal.fire('Aviso', 'No se pudo registrar el voto.', 'warning');
+        toast.error('No se pudo registrar el voto.');
       }
     } catch (error) {
       console.error(error);
-      Swal.fire('Error', 'Problema de conexión.', 'error');
+      toast.error('Problema de conexión al votar.');
     }
   };
 
@@ -245,11 +234,13 @@ function App() {
       if (res.ok) {
         setTicketEditando(null);
         cargarTickets();
+        toast.success("Cambios guardados exitosamente"); // <-- REEMPLAZO DE ALERT
       } else {
-        alert("Error al actualizar el ticket");
+        toast.error("Error al actualizar el ticket"); // <-- REEMPLAZO DE ALERT
       }
     } catch (error) {
       console.error(error);
+      toast.error("Error de conexión al actualizar");
     }
   };
 
@@ -259,9 +250,11 @@ function App() {
       const res = await updateTicket(t.id, datos);
       if (res.ok) {
         cargarTickets();
+        toast.success(`Prioridad cambiada a ${p.toUpperCase()}`); // <-- NUEVO
       }
     } catch (e) {
       console.error(e);
+      toast.error("Error al cambiar la prioridad");
     }
   };
 
@@ -300,12 +293,13 @@ function App() {
         if (ticketEditando === id) {
           setTicketEditando(null);
         }
+        toast.success("Ticket eliminado permanentemente"); // <-- REEMPLAZO DE ALERT
       } else {
-        alert("Error al eliminar");
+        toast.error("Error al eliminar en la base de datos"); // <-- REEMPLAZO DE ALERT
       }
     } catch (error) {
       console.error("Error eliminando:", error);
-      alert("Error de conexión al eliminar.");
+      toast.error("Error de conexión al intentar eliminar."); // <-- REEMPLAZO DE ALERT
     }
   };
 
@@ -333,15 +327,14 @@ function App() {
     return filtrados;
   };
 
-  // Variable que contiene los tickets ya pasados por todos los filtros
   const ticketsAMostrar = obtenerTicketsFiltrados();
 
   // ==========================================
-  // EXPORTAR A EXCEL (USA LOS MISMOS FILTROS DE PANTALLA)
+  // EXPORTAR A EXCEL 
   // ==========================================
   const exportarAExcel = () => {
     if (ticketsAMostrar.length === 0) {
-      Swal.fire('Sin resultados', 'No hay tickets en pantalla para exportar.', 'info');
+      toast.error('No hay tickets en pantalla para exportar.');
       return;
     }
 
@@ -377,6 +370,8 @@ function App() {
 
     const fechaHoy = new Date().toLocaleDateString().replace(/\//g, '-');
     XLSX.writeFile(libro, `Reporte_CANACO_${fechaHoy}.xlsx`);
+    
+    toast.success('Excel descargado correctamente'); // <-- NUEVO
   };
 
   const stats = {
@@ -388,7 +383,7 @@ function App() {
   const departamentosUnicos = ['Todos', ...new Set(tickets.map(t => t.departamento).filter(Boolean))];
 
   // ==========================================
-  // LÓGICA PARA LAS GRÁFICAS (MINI POWER BI)
+  // LÓGICA PARA LAS GRÁFICAS
   // ==========================================
   const getDatosDepartamentos = () => {
     const conteo = {};
@@ -443,6 +438,18 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
+      {/* 👇 NUEVO: El contenedor global de Toasts. Estará flotando esperando instrucciones 👇 */}
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          style: {
+            borderRadius: '10px',
+            background: '#333',
+            color: '#fff',
+          },
+        }}
+      />
+
       {usuario && (
         <Navbar 
           usuario={usuario} 
@@ -603,7 +610,6 @@ function App() {
                     Centro de Reportes y Búsqueda
                   </h3>
                   
-                  {/* --- AHORA SON 4 COLUMNAS PARA EL NUEVO FILTRO DE ESTATUS --- */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     
                     <div>
@@ -676,7 +682,6 @@ function App() {
                 </div>
 
                 <div className="space-y-6">
-                  {/* --- AQUÍ REEMPLAZAMOS EL FILTER DIRECTO POR LA NUEVA VARIABLE ticketsAMostrar --- */}
                   {ticketsAMostrar.map((t) => (
                     <TicketCard 
                       key={t.id} 
