@@ -1,7 +1,15 @@
+import { motion } from 'framer-motion'; // <-- NUEVO: Animaciones elegantes
+
 export default function ConfigModal({ onClose, usuario }) {
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]">
+      {/* <-- NUEVO: Cambiamos <div> por <motion.div> y le damos la animación */}
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+      >
         
         {/* Encabezado */}
         <div className="bg-gray-800 text-white px-6 py-4 flex justify-between items-center">
@@ -21,30 +29,30 @@ export default function ConfigModal({ onClose, usuario }) {
             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Información General</h4>
             <div className="bg-gray-50 rounded-lg p-4 space-y-2 border border-gray-100 text-sm">
                 <div className="flex justify-between">
-                    <span className="text-gray-600">Versión del Software:</span>
-                    <span className="font-mono font-bold text-blue-700">v1.2.0</span>
+                  <span className="text-gray-600">Versión del Software:</span>
+                  <span className="font-mono font-bold text-blue-700">v1.2.0</span>
                 </div>
                 <div className="flex justify-between">
-                    <span className="text-gray-600">Entorno:</span>
-                    <span className="text-green-600 font-bold bg-green-100 px-2 rounded-full text-xs">Producción (LAN)</span>
+                  <span className="text-gray-600">Entorno:</span>
+                  <span className="text-green-600 font-bold bg-green-100 px-2 rounded-full text-xs">Producción (LAN)</span>
                 </div>
                 <div className="flex justify-between">
-                    <span className="text-gray-600">Base de Datos:</span>
-                    <span className="text-gray-800">PostgreSQL 16</span>
+                  <span className="text-gray-600">Base de Datos:</span>
+                  <span className="text-gray-800">PostgreSQL 16</span>
                 </div>
             </div>
           </div>
 
-          {/* Sección de Usuario (Solo visual por ahora) */}
+          {/* Sección de Usuario */}
           <div>
             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Tu Sesión</h4>
             <div className="flex items-center gap-3 bg-blue-50 p-3 rounded-lg border border-blue-100">
                 <div className="bg-blue-200 text-blue-700 w-10 h-10 rounded-full flex items-center justify-center font-bold">
-                    {usuario.nombre.charAt(0)}
+                  {usuario.nombre.charAt(0)}
                 </div>
                 <div>
-                    <p className="text-sm font-bold text-blue-900">{usuario.nombre}</p>
-                    <p className="text-xs text-blue-600">{usuario.email}</p>
+                  <p className="text-sm font-bold text-blue-900">{usuario.nombre}</p>
+                  <p className="text-xs text-blue-600">{usuario.email}</p>
                 </div>
             </div>
           </div>
@@ -64,7 +72,7 @@ export default function ConfigModal({ onClose, usuario }) {
           </button>
         </div>
 
-      </div>
+      </motion.div>
     </div>
   );
 }

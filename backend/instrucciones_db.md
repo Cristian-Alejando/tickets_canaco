@@ -1,12 +1,12 @@
 # 🗄️ Instrucciones para la Base de Datos (CANACO)
-> **Última actualización:** 17 de Febrero de 2026
+> **Última actualización:** 25 de Marzo de 2026
 
 Este documento contiene los scripts SQL necesarios para actualizar una base de datos existente o crear una nueva desde cero para el sistema de **Tickets CANACO**.
 
 ---
 
 ## 🛠️ 0. Parches y Actualizaciones
-*Ejecuta estos comandos **SOLO** si necesitas actualizar tu base de datos actual para soportar las nuevas funciones (Asignación de tickets, Soft-Delete, etc).*
+*Ejecuta estos comandos **SOLO** si necesitas actualizar tu base de datos actual para soportar las nuevas funciones (Asignación de tickets, Soft-Delete, Evidencias, etc).*
 
 ```sql
 -- 1. Soporte para invitados (nombre y email en ticket)
@@ -21,6 +21,10 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS telefono VARCHAR(20);
 
 -- 4. Soporte para "Soft Delete" (Desactivar usuarios sin borrarlos)
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE;
+
+-- 5. Soporte para Departamento y Evidencia Fotográfica (Sharp/Multer)
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS departamento VARCHAR(100);
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS evidencia TEXT;
 ```
 
 ---
@@ -46,7 +50,7 @@ CREATE TABLE usuarios (
     activo BOOLEAN DEFAULT TRUE       -- NUEVO: Para borrado lógico (soft delete)
 );
 
--- B) Tabla de Tickets (Con asignación y contacto externo)
+-- B) Tabla de Tickets (Con asignación, contacto externo y evidencia)
 CREATE TABLE tickets (
     id SERIAL PRIMARY KEY,
     titulo VARCHAR(200) NOT NULL,
@@ -65,7 +69,9 @@ CREATE TABLE tickets (
     -- CAMPOS NUEVOS --
     nombre_contacto VARCHAR(100), 
     email_contacto VARCHAR(100),  
-    asignado_a INTEGER REFERENCES usuarios(id) ON DELETE SET NULL 
+    asignado_a INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    departamento VARCHAR(100),
+    evidencia TEXT
 );
 
 -- C) Tabla de Historial de Votos (Previene votos duplicados)
@@ -97,7 +103,7 @@ VALUES ('Soporte TI', 'soporte@canaco.com', '123456', 'tecnico', '8187654321', T
 ## 📌 Notas Técnicas y Despliegue
 
 ### 🔒 Seguridad y Acceso
-- **Contraseñas**: El sistema utiliza `bcryptjs`. Si insertas usuarios manualmente con código SQL (como en el paso anterior), el sistema los detectará como texto plano temporalmente gracias al soporte *legacy*, y los encriptará automáticamente cuando inicien sesión.
+- **Contraseñas**: El sistema utiliza `bcryptjs`. Si insertas usuarios manualmente con código SQL (como en el paso anterior), el sistema los detectará como texto plano temporalmente gracias al soporte *legacy*, y los encriptará automáticamente cuando inicias sesión.
 - **Borrado de Usuarios**: El sistema utiliza **"Soft Delete"**. Al eliminar un usuario en el panel, NO se borra la fila de la base de datos para no perder su historial de tickets, solo se actualiza su estado a `activo = FALSE`.
 
 ### 🔌 Conexión Local
@@ -108,9 +114,11 @@ VALUES ('Soporte TI', 'soporte@canaco.com', '123456', 'tecnico', '8187654321', T
 Asegúrate de crear tu archivo `.env` en la carpeta `/backend` con la siguiente estructura:
 ```env
 DB_USER=postgres
-DB_PASSWORD=tu_contraseña
+DB_PASSWORD=tu_contraseña_aqui
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=tickets_canaco
-JWT_SECRET=secreto_super_seguro
+DB_NAME=canaco_tickets
+JWT_SECRET=tu_secreto_super_seguro
+EMAIL_USER=tu_correo@gmail.com
+EMAIL_PASS=tu_contraseña_de_aplicacion
 ```

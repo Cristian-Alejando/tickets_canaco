@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion'; // <-- NUEVO: Importamos framer motion
 
 export default function CreateTicketForm({ 
     onSubmit, 
@@ -47,7 +48,13 @@ export default function CreateTicketForm({
   };
 
   return (
-    <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 animate-fade-in-up">
+    // <-- NUEVO: Envolvemos el componente principal en motion.div
+    <motion.div 
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+      className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100"
+    >
         
         {/* ENCABEZADO DINÁMICO */}
         <div className="text-center mb-8">
@@ -229,12 +236,11 @@ export default function CreateTicketForm({
                 />
             </div>
 
-            {/* 👇👇👇 NUEVO: ZONA DE SUBIDA Y TOMA DE EVIDENCIA (DOS BOTONES) 👇👇👇 */}
+            {/* ZONA DE SUBIDA Y TOMA DE EVIDENCIA */}
             <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Evidencia Visual (Opcional)</label>
                 <div className="flex flex-col sm:flex-row gap-4 w-full">
                     
-                    {/* BOTÓN 1: TOMAR FOTO (Usa capture="environment" para abrir la cámara directo en móviles) */}
                     <label className="flex-1 flex flex-col items-center justify-center h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-all">
                         <span className="text-2xl mb-1">📷</span>
                         <span className="text-sm text-gray-600 font-semibold">Tomar Foto</span>
@@ -250,7 +256,6 @@ export default function CreateTicketForm({
                         />
                     </label>
 
-                    {/* BOTÓN 2: SUBIR ARCHIVO DE LA GALERÍA/PC */}
                     <label className="flex-1 flex flex-col items-center justify-center h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-all">
                         <span className="text-2xl mb-1">📁</span>
                         <span className="text-sm text-gray-600 font-semibold">Subir Archivo</span>
@@ -267,7 +272,6 @@ export default function CreateTicketForm({
 
                 </div>
 
-                {/* Mostramos esto si el usuario ya seleccionó/tomó una foto */}
                 {formData.evidencia && (
                     <div className="mt-3 bg-green-50 text-green-700 px-4 py-3 rounded-lg border border-green-200 text-sm font-bold flex items-center justify-between shadow-sm">
                         <div className="flex items-center gap-2 overflow-hidden">
@@ -286,14 +290,12 @@ export default function CreateTicketForm({
                     </div>
                 )}
             </div>
-            {/* 👆👆👆 FIN DE ZONA DE SUBIDA DE EVIDENCIA 👆👆👆 */}
             
             <div className="flex gap-4 pt-6">
                 <button type="button" onClick={onCancel} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-3 rounded-lg font-bold transition">
                     {usuario ? 'Cancelar' : 'Limpiar'}
                 </button>
                 
-                {/* --- BOTÓN DE ENVÍO INTELIGENTE --- */}
                 <button 
                     type="submit" 
                     disabled={!isFormValid} 
@@ -307,6 +309,6 @@ export default function CreateTicketForm({
                 </button>
             </div>
         </form>
-    </div>
+    </motion.div>
   );
 }

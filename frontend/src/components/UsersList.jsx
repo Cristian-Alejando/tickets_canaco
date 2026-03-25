@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { registerUser, deleteUser } from '../services/ticketService';
+import { toast } from 'react-hot-toast'; // <-- NUEVO
+import Swal from 'sweetalert2'; // <-- NUEVO
 
 export default function UsersList({ users, onUserUpdated }) { 
   
@@ -14,31 +16,60 @@ export default function UsersList({ users, onUserUpdated }) {
     e.preventDefault();
     if(!nuevoUsuario.nombre || !nuevoUsuario.email || !nuevoUsuario.password) return;
 
-    if(window.confirm(`¿Confirmas crear al usuario "${nuevoUsuario.nombre}"?`)) {
+    // <-- NUEVO: Confirmación moderna con SweetAlert
+    const confirmacion = await Swal.fire({
+        title: '¿Crear nuevo usuario?',
+        text: `Vas a registrar a "${nuevoUsuario.nombre}" en el sistema.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#16a34a', // Verde
+        cancelButtonColor: '#6b7280', // Gris
+        confirmButtonText: 'Sí, crear usuario',
+        cancelButtonText: 'Cancelar',
+        customClass: { popup: 'rounded-2xl' }
+    });
+
+    if(confirmacion.isConfirmed) {
         const res = await registerUser(nuevoUsuario);
         if(res.error) {
-            alert("❌ Error: " + res.error);
+            toast.error("Error: " + res.error); // <-- NUEVO: Toast de error
         } else {
-            alert("✅ Usuario creado con éxito");
+            toast.success("Usuario creado con éxito"); // <-- NUEVO: Toast de éxito
             setNuevoUsuario({ nombre: '', email: '', password: '', rol: 'tecnico' }); 
             if(onUserUpdated) onUserUpdated(); 
         }
     }
   };
 
-  // Esta función ahora sirve para ACTIVAR y DESACTIVAR
   const handleToggleStatus = async (id, nombre, estaActivo) => {
     const accion = estaActivo ? "DESACTIVAR" : "REACTIVAR";
+    const titulo = estaActivo ? '¿Quitar acceso?' : '¿Devolver acceso?';
     const mensaje = estaActivo 
-        ? `⚠️ ¿Seguro que quieres quitar el acceso a ${nombre}?`
-        : `✅ ¿Quieres devolver el acceso a ${nombre}?`;
+        ? `El usuario ${nombre} ya no podrá entrar al sistema.`
+        : `El usuario ${nombre} podrá volver a iniciar sesión.`;
+    const iconType = estaActivo ? 'warning' : 'info';
+    const confirmColor = estaActivo ? '#dc2626' : '#2563eb'; // Rojo para baja, Azul para alta
 
-    if(window.confirm(mensaje)) {
+    // <-- NUEVO: Confirmación moderna dinámica
+    const confirmacion = await Swal.fire({
+        title: titulo,
+        text: mensaje,
+        icon: iconType,
+        showCancelButton: true,
+        confirmButtonColor: confirmColor,
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: `Sí, ${accion.toLowerCase()}`,
+        cancelButtonText: 'Cancelar',
+        customClass: { popup: 'rounded-2xl' }
+    });
+
+    if(confirmacion.isConfirmed) {
         const exito = await deleteUser(id);
         if(exito) {
+            toast.success(`Acceso de ${nombre} actualizado`); // <-- NUEVO
             if(onUserUpdated) onUserUpdated(); // Recargar lista
         } else {
-            alert(`❌ Error al ${accion.toLowerCase()}.`);
+            toast.error(`Error al ${accion.toLowerCase()} al usuario.`); // <-- NUEVO
         }
     }
   };
@@ -46,7 +77,7 @@ export default function UsersList({ users, onUserUpdated }) {
   return (
     <div className="animate-fade-in-up space-y-8">
       
-      {/* FORMULARIO DE ALTA (Igual que antes) */}
+      {/* FORMULARIO DE ALTA */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
         <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
             👤 Alta de Nuevo Personal
@@ -123,7 +154,6 @@ export default function UsersList({ users, onUserUpdated }) {
                   </td>
 
                   <td className="p-4 text-right">
-                    {/* AQUÍ ESTÁ LA LÓGICA DEL BOTÓN CAMBIANTE */}
                     <button 
                         onClick={() => handleToggleStatus(u.id, u.nombre, estaActivo)}
                         className={`font-bold text-sm transition-colors px-3 py-1 rounded border border-transparent 
