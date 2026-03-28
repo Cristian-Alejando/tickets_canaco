@@ -17,7 +17,7 @@ app.use(cors({
 
 app.use(express.json());
 
-// 👇 NUEVO: Hacer pública la carpeta de evidencias 👇
+// NUEVO: Hacer pública la carpeta de evidencias 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // --- 2. IMPORTAR Y USAR RUTAS (API) ---
@@ -43,7 +43,7 @@ app.get('/test-db', async (req, res) => {
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // --- 4. RUTA COMODÍN (SOLUCIÓN INFALIBLE PARA EXPRESS 5) ---
-// 👇 NUEVO: Agregamos |\/uploads para que React no bloquee las imágenes 👇
+// NUEVO: Agregamos |\/uploads para que React no bloquee las imágenes 
 app.get(/^(?!\/auth|\/tickets|\/uploads).*$/, (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });

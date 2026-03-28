@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion'; // <-- NUEVO: Importamos framer motion
+import { useState } from 'react';
+import { motion } from 'framer-motion'; 
+import { useNavigate } from 'react-router-dom';
 
 export default function CreateTicketForm({ 
     onSubmit, 
@@ -10,19 +11,16 @@ export default function CreateTicketForm({
     sugerencias, 
     onVoteSugerencia, 
     misVotos,
-    usuario // <--- IMPORTANTE: Recibimos al usuario
+    usuario 
 }) {
 
-  // --- NUEVO ESTADO PARA EL MODO ASISTENCIA ---
+  const navigate = useNavigate();
+
+  // --- ESTADO PARA EL MODO ASISTENCIA ---
   const [esParaOtro, setEsParaOtro] = useState(false); 
 
-  // Fijar Categoría Automáticamente al cargar
-  useEffect(() => {
-    setFormData(prev => ({ ...prev, categoria: 'General' }));
-  }, []);
-
   // =================================================================
-  // 1. VALIDACIÓN EN TIEMPO REAL (SIN EXIGIR CORREO)
+  // 1. VALIDACIÓN EN TIEMPO REAL 
   // =================================================================
   const isFormValid = 
       (usuario && !esParaOtro) 
@@ -30,30 +28,40 @@ export default function CreateTicketForm({
       : (formData.nombre_contacto?.trim() !== '' && formData.departamento !== '' && formData.titulo?.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '');
 
   // =================================================================
-  // 2. FUNCIÓN DE ENVÍO PERSONALIZADA (Intermedia)
+  // 2. FUNCIÓN DE ENVÍO PERSONALIZADA 
   // =================================================================
   const handleLocalSubmit = (e) => {
     e.preventDefault();
     
+    // Formatear el correo institucional si se ingresó uno
     const correoFinal = formData.email_contacto?.trim() 
         ? `${formData.email_contacto}@canaco.net` 
         : '';
 
     const dataToSend = (usuario && !esParaOtro) 
-      ? { ...formData, nombre_contacto: usuario.nombre, email_contacto: usuario.email, departamento: usuario.departamento || '' }
-      : { ...formData, email_contacto: correoFinal, esParaOtro: esParaOtro };
+      ? { 
+          ...formData, 
+          nombre_contacto: usuario.nombre, 
+          email_contacto: usuario.email, 
+          departamento: usuario.departamento || '',
+          esParaOtro: false 
+        }
+      : { 
+          ...formData, 
+          email_contacto: correoFinal, 
+          esParaOtro: true 
+        };
 
-    // Llamamos a la función original que viene del padre
+    // Llamamos a la función original que viene de App.jsx
     onSubmit(e, dataToSend); 
   };
 
   return (
-    // <-- NUEVO: Envolvemos el componente principal en motion.div
     <motion.div 
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
-      className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100"
+      className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 relative"
     >
         
         {/* ENCABEZADO DINÁMICO */}
@@ -108,7 +116,7 @@ export default function CreateTicketForm({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> 
                     
                     <div className="md:col-span-1">
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Tu Nombre *</label>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Nombre Completo *</label>
                         <input 
                             type="text" required 
                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white transition-all"
@@ -178,7 +186,7 @@ export default function CreateTicketForm({
                 />
                 
                 {/* ALERTA DE DUPLICADOS */}
-                {sugerencias.length > 0 && usuario && (
+                {sugerencias?.length > 0 && usuario && (
                 <div className="mt-4 bg-orange-50 border border-orange-200 rounded-xl p-5 animate-pulse">
                     <div className="flex items-center gap-2 mb-3">
                         <span className="text-orange-500 text-xl">⚠️</span>
@@ -194,10 +202,10 @@ export default function CreateTicketForm({
                         <button 
                             type="button" 
                             onClick={() => onVoteSugerencia(s.id, true)} 
-                            disabled={misVotos.includes(s.id)}
-                            className={`text-xs px-4 py-2 rounded-lg font-bold transition ${misVotos.includes(s.id) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}
+                            disabled={misVotos?.includes(s.id)}
+                            className={`text-xs px-4 py-2 rounded-lg font-bold transition ${misVotos?.includes(s.id) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}
                         >
-                            {misVotos.includes(s.id) ? 'Ya votaste' : '✋ Es este'}
+                            {misVotos?.includes(s.id) ? 'Ya votaste' : '✋ Es este'}
                         </button>
                         </li>
                     ))}
@@ -309,6 +317,19 @@ export default function CreateTicketForm({
                 </button>
             </div>
         </form>
+
+        {!usuario && (
+            <div className="mt-8 text-center border-t border-gray-100 pt-6">
+                <button
+                    type="button"
+                    onClick={() => navigate('/admin')}
+                    className="text-xs font-bold text-gray-400 hover:text-blue-600 transition flex items-center justify-center gap-1 mx-auto"
+                >
+                    <span>🔒</span> Acceso Técnico
+                </button>
+            </div>
+        )}
+
     </motion.div>
   );
 }
