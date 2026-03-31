@@ -1,8 +1,7 @@
 import { calcularDias, formatearFecha } from '../utils/format';
 import { API_URL } from '../config'; 
-import { motion } from 'framer-motion'; // <-- NUEVO: Importamos Framer Motion
+import { motion } from 'framer-motion';
 
-// <-- NUEVO: Definimos la animación de entrada
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
@@ -28,12 +27,11 @@ export default function TicketCard({
   };
 
   return (
-    // <-- NUEVO: Cambiamos <div> por <motion.div> y le aplicamos las variantes
     <motion.div 
       variants={cardVariants}
       initial="hidden"
       animate="visible"
-      whileHover={{ scale: 1.01, transition: { duration: 0.2 } }} // <-- Efecto sutil de levantamiento
+      whileHover={{ scale: 1.01, transition: { duration: 0.2 } }}
       className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition relative overflow-hidden group"
     >
       <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
@@ -176,7 +174,6 @@ export default function TicketCard({
         </div>
       ) : (
         // --- MODO EDICIÓN ---
-        // <-- NUEVO: También animamos la transición al modo edición
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -211,7 +208,8 @@ export default function TicketCard({
               <select 
                 className="w-full p-3 border border-gray-300 rounded-lg mt-1 bg-white focus:ring-2 focus:ring-blue-400 outline-none"
                 value={editData.asignado_a || ''}
-                onChange={e => setEditData({...editData, asignado_a: e.target.value})}
+                // 👇 ESTA ES LA MAGIA: Si eligen "Sin asignar", mandamos null al backend 👇
+                onChange={e => setEditData({...editData, asignado_a: e.target.value === "" ? null : e.target.value})}
               >
                 <option value="">-- Sin Asignar --</option>
                 {listaUsuarios && listaUsuarios

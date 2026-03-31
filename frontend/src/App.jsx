@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { API_URL } from './config';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
-import { Toaster, toast } from 'react-hot-toast'; // <-- NUEVO: Importamos el sistema de notificaciones modernas
+import { Toaster, toast } from 'react-hot-toast'; 
 
 // --- LIBRERÍAS DE GRÁFICAS (FASE 2) ---
 import { 
@@ -57,6 +57,10 @@ function App() {
   const [misVotos, setMisVotos] = useState([]);
   const [sugerencias, setSugerencias] = useState([]);
   const [ticketEditando, setTicketEditando] = useState(null);
+  
+  // 👇 ESTADOS PARA EL DASHBOARD DE ADMIN 👇
+  const [ticketModalAdmin, setTicketModalAdmin] = useState(null);
+  const [filtroPrioridadActivos, setFiltroPrioridadActivos] = useState('Todas'); // <-- NUEVO
 
   const [editData, setEditData] = useState({
     estatus: '',
@@ -72,7 +76,7 @@ function App() {
   const [filtroFechaInicio, setFiltroFechaInicio] = useState('');
   const [filtroFechaFin, setFiltroFechaFin] = useState('');
   const [filtroDepartamento, setFiltroDepartamento] = useState('Todos');
-  const [filtroEstatus, setFiltroEstatus] = useState('resuelto'); // Por defecto en historial muestra resueltos
+  const [filtroEstatus, setFiltroEstatus] = useState('resuelto'); 
 
   useEffect(() => {
     cargarTickets();
@@ -133,7 +137,7 @@ function App() {
 
       if (res.ok) {
         if (usuario) {
-          toast.success('Ticket guardado correctamente'); // <-- NUEVO: Toast en vez de Swal para que sea más rápido
+          toast.success('Ticket guardado correctamente'); 
         } else {
           Swal.fire({
             title: '¡Reporte Enviado!',
@@ -173,14 +177,14 @@ function App() {
   const handleLoginSuccess = (u) => {
     setUsuario(u);
     localStorage.setItem('sesion_admin_canaco', JSON.stringify(u));
-    toast.success(`¡Bienvenido de nuevo, ${u.nombre}!`); // <-- NUEVO: Saludo al iniciar sesión
+    toast.success(`¡Bienvenido de nuevo, ${u.nombre}!`); 
     navigate('/admin/dashboard');
   };
 
   const handleLogout = () => {
     setUsuario(null);
     localStorage.removeItem('sesion_admin_canaco');
-    toast('Sesión cerrada correctamente', { icon: '👋' }); // <-- NUEVO: Despedida
+    toast('Sesión cerrada correctamente', { icon: '👋' }); 
     navigate('/');
   };
 
@@ -226,7 +230,7 @@ function App() {
       estatus: editData.estatus,
       comentarios: editData.comentarios,
       prioridad: editData.prioridad || ticketOriginal.prioridad || 'media',
-      asignado_a: editData.asignado_a
+      asignado_a: editData.asignado_a || null
     };
 
     try {
@@ -234,9 +238,9 @@ function App() {
       if (res.ok) {
         setTicketEditando(null);
         cargarTickets();
-        toast.success("Cambios guardados exitosamente"); // <-- REEMPLAZO DE ALERT
+        toast.success("Cambios guardados exitosamente"); 
       } else {
-        toast.error("Error al actualizar el ticket"); // <-- REEMPLAZO DE ALERT
+        toast.error("Error al actualizar el ticket"); 
       }
     } catch (error) {
       console.error(error);
@@ -250,7 +254,7 @@ function App() {
       const res = await updateTicket(t.id, datos);
       if (res.ok) {
         cargarTickets();
-        toast.success(`Prioridad cambiada a ${p.toUpperCase()}`); // <-- NUEVO
+        toast.success(`Prioridad cambiada a ${p.toUpperCase()}`); 
       }
     } catch (e) {
       console.error(e);
@@ -293,19 +297,16 @@ function App() {
         if (ticketEditando === id) {
           setTicketEditando(null);
         }
-        toast.success("Ticket eliminado permanentemente"); // <-- REEMPLAZO DE ALERT
+        toast.success("Ticket eliminado permanentemente"); 
       } else {
-        toast.error("Error al eliminar en la base de datos"); // <-- REEMPLAZO DE ALERT
+        toast.error("Error al eliminar en la base de datos"); 
       }
     } catch (error) {
       console.error("Error eliminando:", error);
-      toast.error("Error de conexión al intentar eliminar."); // <-- REEMPLAZO DE ALERT
+      toast.error("Error de conexión al intentar eliminar."); 
     }
   };
 
-  // ==========================================
-  // LÓGICA DE FILTRADO MAESTRO (PARA PANTALLA Y EXCEL)
-  // ==========================================
   const obtenerTicketsFiltrados = () => {
     let filtrados = tickets;
 
@@ -329,9 +330,6 @@ function App() {
 
   const ticketsAMostrar = obtenerTicketsFiltrados();
 
-  // ==========================================
-  // EXPORTAR A EXCEL 
-  // ==========================================
   const exportarAExcel = () => {
     if (ticketsAMostrar.length === 0) {
       toast.error('No hay tickets en pantalla para exportar.');
@@ -371,7 +369,7 @@ function App() {
     const fechaHoy = new Date().toLocaleDateString().replace(/\//g, '-');
     XLSX.writeFile(libro, `Reporte_CANACO_${fechaHoy}.xlsx`);
     
-    toast.success('Excel descargado correctamente'); // <-- NUEVO
+    toast.success('Excel descargado correctamente'); 
   };
 
   const stats = {
@@ -382,9 +380,6 @@ function App() {
 
   const departamentosUnicos = ['Todos', ...new Set(tickets.map(t => t.departamento).filter(Boolean))];
 
-  // ==========================================
-  // LÓGICA PARA LAS GRÁFICAS
-  // ==========================================
   const getDatosDepartamentos = () => {
     const conteo = {};
     tickets.forEach(t => {
@@ -438,7 +433,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
-      {/* 👇 NUEVO: El contenedor global de Toasts. Estará flotando esperando instrucciones 👇 */}
       <Toaster 
         position="top-right"
         toastOptions={{
@@ -516,6 +510,9 @@ function App() {
         
         <Route path="/register" element={<RegisterPage />} />
 
+        {/* ========================================================================= */}
+        {/* --- DASHBOARD DEL ADMINISTRADOR CON NUEVA TABLA TIPO EXCEL Y MODAL --- */}
+        {/* ========================================================================= */}
         <Route path="/admin/dashboard" element={
           usuario ? (
             <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
@@ -524,12 +521,113 @@ function App() {
                 
                 <StatsCards stats={stats} />
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 mb-8">
-                  
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                {/* --- NUEVA TABLA TIPO EXCEL (REPORTE ACTIVO) --- */}
+                {(() => {
+                    // 👇 Calculamos los tickets activos combinados con el nuevo filtro 👇
+                    const ticketsActivosFiltrados = tickets.filter(t => 
+                        t.estatus !== 'resuelto' && 
+                        (filtroPrioridadActivos === 'Todas' || (t.prioridad || 'media') === filtroPrioridadActivos)
+                    );
+
+                    return (
+                        <div className="mt-8 mb-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            {/* --- ENCABEZADO CON LOS BOTONES DE PRIORIDAD --- */}
+                            <div className="p-4 md:p-5 border-b border-gray-100 bg-gray-50 flex flex-col md:flex-row justify-between items-center gap-4">
+                                <h3 className="text-lg font-bold text-blue-900 whitespace-nowrap">Reportes Activos (Vista Rápida)</h3>
+                                
+                                {/* Botones en el centro */}
+                                <div className="flex flex-wrap justify-center bg-white border border-gray-200 rounded-lg p-1 shadow-sm gap-1">
+                                    <button 
+                                        onClick={() => setFiltroPrioridadActivos('Todas')} 
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${filtroPrioridadActivos === 'Todas' ? 'bg-gray-100 text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                                    >
+                                        Todas
+                                    </button>
+                                    <button 
+                                        onClick={() => setFiltroPrioridadActivos('alta')} 
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'alta' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                                    >
+                                        🔴 Alta
+                                    </button>
+                                    <button 
+                                        onClick={() => setFiltroPrioridadActivos('media')} 
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'media' ? 'bg-yellow-50 text-yellow-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                                    >
+                                        🟡 Media
+                                    </button>
+                                    <button 
+                                        onClick={() => setFiltroPrioridadActivos('baja')} 
+                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'baja' ? 'bg-green-50 text-green-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+                                    >
+                                        🟢 Baja
+                                    </button>
+                                </div>
+
+                                <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
+                                    {ticketsActivosFiltrados.length} Pendientes
+                                </span>
+                            </div>
+
+                            {/* --- CUERPO DE LA TABLA --- */}
+                            <div className="overflow-x-auto max-h-[400px]">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="sticky top-0 bg-white shadow-sm z-10">
+                                        <tr className="border-b border-gray-200 text-gray-600 text-sm">
+                                            <th className="p-4 font-bold">Folio</th>
+                                            <th className="p-4 font-bold">Fecha</th>
+                                            <th className="p-4 font-bold">Solicitante</th>
+                                            <th className="p-4 font-bold">Título / Ubicación</th>
+                                            <th className="p-4 font-bold">Estatus</th>
+                                            <th className="p-4 font-bold text-center">Prioridad</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="text-sm">
+                                        {ticketsActivosFiltrados.map((t) => (
+                                            <tr 
+                                                key={t.id} 
+                                                onClick={() => setTicketModalAdmin(t)}
+                                                className="border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer"
+                                            >
+                                                <td className="p-4 font-mono font-bold text-gray-500">#{t.id}</td>
+                                                <td className="p-4 text-gray-600">{new Date(t.fecha_creacion).toLocaleDateString()}</td>
+                                                <td className="p-4 font-medium text-gray-800">{t.nombre_contacto || "Interno"}</td>
+                                                <td className="p-4">
+                                                    <p className="font-bold text-gray-800 truncate max-w-[250px]">{t.titulo}</p>
+                                                    <p className="text-xs text-gray-500">📍 {t.ubicacion}</p>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                                                        t.estatus === 'en_proceso' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+                                                    }`}>
+                                                        {t.estatus.replace('_', ' ')}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                                                        (t.prioridad || 'media') === 'alta' ? 'bg-red-100 text-red-700' :
+                                                        (t.prioridad || 'media') === 'baja' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                                                    }`}>
+                                                        {t.prioridad || 'MEDIA'}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {ticketsActivosFiltrados.length === 0 && (
+                                    <div className="p-8 text-center text-gray-500 font-medium">No hay reportes con esta prioridad. 🎉</div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* --- GRÁFICAS ORIGINALES (Con corrección de consola) --- */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full min-w-0">
                     <h3 className="text-lg font-bold text-blue-900 mb-4 text-center">Reportes por Departamento</h3>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-64 w-full min-w-0">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
                         <PieChart>
                           <Pie 
                             data={getDatosDepartamentos()} 
@@ -551,10 +649,10 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full min-w-0">
                     <h3 className="text-lg font-bold text-blue-900 mb-4 text-center">Incidencias por Categoría</h3>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
+                    <div className="h-64 w-full min-w-0">
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
                         <BarChart data={getDatosCategorias()} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                           <XAxis dataKey="name" tick={{fontSize: 12}} />
                           <YAxis allowDecimals={false} />
@@ -564,34 +662,56 @@ function App() {
                       </ResponsiveContainer>
                     </div>
                   </div>
-
-                </div>
-
-                <h2 className="text-2xl font-bold text-blue-900 mb-6 border-b pb-2">Reportes Activos</h2>
-                <div className="grid gap-6">
-                  {tickets.filter((t) => t.estatus !== 'resuelto').map((t) => (
-                    <TicketCard 
-                      key={t.id} 
-                      ticket={t} 
-                      usuario={usuario} 
-                      misVotos={misVotos} 
-                      isEditing={ticketEditando === t.id} 
-                      editData={editData} 
-                      setEditData={setEditData} 
-                      listaUsuarios={listaUsuarios} 
-                      handlers={{ 
-                        onVote: handleVotar, 
-                        onEditStart: iniciarEdicion, 
-                        onEditCancel: () => setTicketEditando(null), 
-                        onEditSave: guardarEdicion, 
-                        onPriorityChange: cambiarPrioridad, 
-                        onDelete: handleDeleteTicket 
-                      }} 
-                    />
-                  ))}
                 </div>
 
               </div>
+
+              {/* --- MODAL FLOTANTE DEL ADMINISTRADOR --- */}
+              {ticketModalAdmin && (
+                <div 
+                    className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex justify-center items-center p-4"
+                    onClick={() => { setTicketModalAdmin(null); setTicketEditando(null); }}
+                >
+                    <div 
+                        className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative p-6 animate-scale-in"
+                        onClick={(e) => e.stopPropagation()} 
+                    >
+                        {/* Botón de cierre */}
+                        <button 
+                            onClick={() => { setTicketModalAdmin(null); setTicketEditando(null); }}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition p-1.5 rounded-full hover:bg-gray-100 z-10"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+
+                        <div className="pt-2">
+                            {/* Pasamos el ticket buscando actualizaciones en tiempo real */}
+                            <TicketCard 
+                                ticket={tickets.find(t => t.id === ticketModalAdmin.id) || ticketModalAdmin} 
+                                usuario={usuario} 
+                                misVotos={misVotos} 
+                                isEditing={ticketEditando === ticketModalAdmin.id} 
+                                editData={editData} 
+                                setEditData={setEditData} 
+                                listaUsuarios={listaUsuarios} 
+                                handlers={{ 
+                                    onVote: handleVotar, 
+                                    onEditStart: iniciarEdicion, 
+                                    onEditCancel: () => setTicketEditando(null), 
+                                    onEditSave: guardarEdicion, 
+                                    onPriorityChange: cambiarPrioridad, 
+                                    onDelete: async (id) => { 
+                                        await handleDeleteTicket(id); 
+                                        setTicketModalAdmin(null); 
+                                    } 
+                                }} 
+                            />
+                        </div>
+                    </div>
+                </div>
+              )}
             </main>
           ) : <Navigate to="/admin" />
         } />
