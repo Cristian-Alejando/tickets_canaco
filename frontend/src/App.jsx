@@ -5,6 +5,9 @@ import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { Toaster, toast } from 'react-hot-toast'; 
 
+// 👇 NUEVO: Importamos Socket.io para escuchar al servidor en tiempo real 👇
+import { io } from 'socket.io-client';
+
 // --- LIBRERÍAS DE GRÁFICAS (FASE 2) ---
 import { 
   PieChart, Pie, Cell, 
@@ -34,13 +37,17 @@ import {
 } from './services/ticketService';
 
 function App() {
-  // === 1. MEMORIA INTELIGENTE AL INICIAR ===
   const [usuario, setUsuario] = useState(() => {
     const usuarioGuardado = localStorage.getItem('sesion_admin_canaco');
     return usuarioGuardado ? JSON.parse(usuarioGuardado) : null;
   });
 
-  const [tickets, setTickets] = useState([]);
+  const [tickets, setTickets] = useState([]); 
+  
+  const [historialTickets, setHistorialTickets] = useState([]);
+  const [historialPage, setHistorialPage] = useState(1);
+  const [historialTotalPages, setHistorialTotalPages] = useState(1);
+
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -58,9 +65,8 @@ function App() {
   const [sugerencias, setSugerencias] = useState([]);
   const [ticketEditando, setTicketEditando] = useState(null);
   
-  // 👇 ESTADOS PARA EL DASHBOARD DE ADMIN 👇
   const [ticketModalAdmin, setTicketModalAdmin] = useState(null);
-  const [filtroPrioridadActivos, setFiltroPrioridadActivos] = useState('Todas'); // <-- NUEVO
+  const [filtroPrioridadActivos, setFiltroPrioridadActivos] = useState('Todas'); 
 
   const [editData, setEditData] = useState({
     estatus: '',
@@ -72,14 +78,54 @@ function App() {
   const [mostrarConfig, setMostrarConfig] = useState(false);
   const [listaUsuarios, setListaUsuarios] = useState([]);
 
-  // === ESTADOS PARA FILTROS EN PANTALLA Y EXCEL ===
   const [filtroFechaInicio, setFiltroFechaInicio] = useState('');
   const [filtroFechaFin, setFiltroFechaFin] = useState('');
   const [filtroDepartamento, setFiltroDepartamento] = useState('Todos');
   const [filtroEstatus, setFiltroEstatus] = useState('resuelto'); 
 
+  // 👇 NUEVO EFECTO: CONEXIÓN DE WEBSOCKETS 👇
   useEffect(() => {
-    cargarTickets();
+    // Nos conectamos al radio del backend usando la URL principal (sin el /api)
+    const socketURL = API_URL.replace('/api', ''); 
+    const socket = io(socketURL);
+
+    // Evento 1: Ticket Creado
+    socket.on('ticket_creado', (nuevoTicket) => {
+        toast.success(`🎫 ¡Nuevo ticket recibido: ${nuevoTicket.titulo}!`, { icon: '🔔' });
+        cargarTicketsGlobales(); 
+        if (usuario) cargarHistorialPaginado(historialPage);
+    });
+
+    // Evento 2: Ticket Actualizado o Votado
+    socket.on('ticket_actualizado', (ticketActualizado) => {
+        cargarTicketsGlobales();
+        if (usuario) cargarHistorialPaginado(historialPage);
+        // Si el admin tiene abierto el modal de este mismo ticket, actualizamos el modal también
+        if (ticketModalAdmin && ticketModalAdmin.id === ticketActualizado.id) {
+            setTicketModalAdmin(ticketActualizado);
+        }
+    });
+
+    // Evento 3: Ticket Eliminado
+    socket.on('ticket_eliminado', (ticketId) => {
+        cargarTicketsGlobales();
+        if (usuario) cargarHistorialPaginado(historialPage);
+        // Si el admin tiene el modal de este ticket abierto, se lo cerramos
+        if (ticketModalAdmin && ticketModalAdmin.id === ticketId) {
+            setTicketModalAdmin(null);
+            toast('El ticket que estabas viendo fue eliminado', { icon: '⚠️' });
+        }
+    });
+
+    // Limpiamos la antena cuando el componente se desmonta
+    return () => {
+        socket.disconnect();
+    };
+  }, [usuario, historialPage, filtroEstatus, filtroDepartamento, filtroFechaInicio, filtroFechaFin, ticketModalAdmin]);
+  // 👆 ------------------------------------------- 👆
+
+  useEffect(() => {
+    cargarTicketsGlobales();
     if (usuario) {
       cargarMisVotos();
       cargarUsuarios();
@@ -89,7 +135,13 @@ function App() {
     }
   }, [usuario]);
 
-  const cargarTickets = async () => {
+  useEffect(() => {
+    if (usuario) {
+      cargarHistorialPaginado(historialPage);
+    }
+  }, [historialPage, filtroEstatus, filtroDepartamento, filtroFechaInicio, filtroFechaFin, usuario]);
+
+  const cargarTicketsGlobales = async () => {
     try {
       const data = await getTickets();
       const ticketsOrdenados = data.sort((a, b) => {
@@ -101,6 +153,34 @@ function App() {
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const cargarHistorialPaginado = async (page) => {
+    try {
+      const filters = {
+        estatus: filtroEstatus,
+        departamento: filtroDepartamento,
+        fechaInicio: filtroFechaInicio,
+        fechaFin: filtroFechaFin
+      };
+      
+      const data = await getTickets(page, 15, filters); 
+      
+      if (data && data.tickets) {
+        setHistorialTickets(data.tickets);
+        setHistorialTotalPages(data.totalPages);
+      } else {
+        setHistorialTickets([]);
+        setHistorialTotalPages(1);
+      }
+    } catch (error) {
+      console.error("Error al cargar historial paginado:", error);
+    }
+  };
+
+  const handleFiltroChange = (setter, value) => {
+    setter(value);
+    setHistorialPage(1);
   };
 
   const cargarMisVotos = async () => {
@@ -160,17 +240,19 @@ function App() {
           email_contacto: ''
         });
         setSugerencias([]);
-        cargarTickets();
+        
+        cargarTicketsGlobales();
+        if (usuario) cargarHistorialPaginado(historialPage);
 
         if (usuario) {
           navigate('/admin/dashboard');
         }
       } else {
-        toast.error('No se pudo enviar el reporte. Revisa el archivo adjunto.');
+        toast.error('No se pudo enviar el reporte.');
       }
     } catch (error) {
       console.error(error);
-      toast.error('Error de conexión. Revisa tu internet.');
+      toast.error('Error de conexión.');
     }
   };
 
@@ -184,6 +266,7 @@ function App() {
   const handleLogout = () => {
     setUsuario(null);
     localStorage.removeItem('sesion_admin_canaco');
+    localStorage.removeItem('token_admin_canaco'); // <--- AÑADE ESTA LÍNEA
     toast('Sesión cerrada correctamente', { icon: '👋' }); 
     navigate('/');
   };
@@ -196,7 +279,9 @@ function App() {
       const res = await voteTicket(id, userId);
 
       if (res.ok) {
-        cargarTickets();
+        cargarTicketsGlobales();
+        if (usuario) cargarHistorialPaginado(historialPage);
+        
         const nuevosVotos = [...misVotos, id];
         setMisVotos(nuevosVotos);
 
@@ -222,7 +307,7 @@ function App() {
   };
 
   const guardarEdicion = async (id) => {
-    const ticketOriginal = tickets.find((t) => t.id === id);
+    const ticketOriginal = tickets.find((t) => t.id === id) || historialTickets.find(t => t.id === id);
     if (!ticketOriginal) return;
 
     const datosCompletos = {
@@ -237,7 +322,8 @@ function App() {
       const res = await updateTicket(id, datosCompletos);
       if (res.ok) {
         setTicketEditando(null);
-        cargarTickets();
+        cargarTicketsGlobales();
+        if (usuario) cargarHistorialPaginado(historialPage);
         toast.success("Cambios guardados exitosamente"); 
       } else {
         toast.error("Error al actualizar el ticket"); 
@@ -253,7 +339,8 @@ function App() {
     try {
       const res = await updateTicket(t.id, datos);
       if (res.ok) {
-        cargarTickets();
+        cargarTicketsGlobales();
+        if (usuario) cargarHistorialPaginado(historialPage);
         toast.success(`Prioridad cambiada a ${p.toUpperCase()}`); 
       }
     } catch (e) {
@@ -274,12 +361,10 @@ function App() {
 
   const buscarSimilares = async (txt) => {
     setFormData((prev) => ({ ...prev, titulo: txt }));
-    
     if (txt.length < 3) {
       setSugerencias([]);
       return;
     }
-    
     try {
       const res = await fetch(`${API_URL}/tickets/buscar?q=${txt}`);
       const data = await res.json();
@@ -293,7 +378,8 @@ function App() {
     try {
       const res = await deleteTicket(id);
       if (res.ok) {
-        setTickets((prevTickets) => prevTickets.filter((t) => t.id !== id));
+        setTickets((prev) => prev.filter((t) => t.id !== id));
+        setHistorialTickets((prev) => prev.filter((t) => t.id !== id));
         if (ticketEditando === id) {
           setTicketEditando(null);
         }
@@ -307,28 +393,7 @@ function App() {
     }
   };
 
-  const obtenerTicketsFiltrados = () => {
-    let filtrados = tickets;
-
-    if (filtroEstatus !== 'Todos') {
-      filtrados = filtrados.filter(t => t.estatus === filtroEstatus);
-    }
-    if (filtroDepartamento !== 'Todos') {
-      filtrados = filtrados.filter(t => t.departamento === filtroDepartamento);
-    }
-    if (filtroFechaInicio) {
-      const inicio = new Date(filtroFechaInicio + 'T00:00:00');
-      filtrados = filtrados.filter(t => new Date(t.fecha_creacion) >= inicio);
-    }
-    if (filtroFechaFin) {
-      const fin = new Date(filtroFechaFin + 'T23:59:59');
-      filtrados = filtrados.filter(t => new Date(t.fecha_creacion) <= fin);
-    }
-
-    return filtrados;
-  };
-
-  const ticketsAMostrar = obtenerTicketsFiltrados();
+  const ticketsAMostrar = historialTickets;
 
   const exportarAExcel = () => {
     if (ticketsAMostrar.length === 0) {
@@ -351,16 +416,8 @@ function App() {
 
     const hoja = XLSX.utils.json_to_sheet(datosLimpios);
     hoja['!cols'] = [
-      { wch: 8 },  // Folio
-      { wch: 40 }, // Título
-      { wch: 15 }, // Estatus
-      { wch: 15 }, // Prioridad
-      { wch: 20 }, // Departamento
-      { wch: 20 }, // Categoría
-      { wch: 15 }, // Votos
-      { wch: 25 }, // Solicitante
-      { wch: 15 }, // Fecha
-      { wch: 40 }  // Comentarios
+      { wch: 8 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, 
+      { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 40 }
     ];
 
     const libro = XLSX.utils.book_new();
@@ -436,11 +493,7 @@ function App() {
       <Toaster 
         position="top-right"
         toastOptions={{
-          style: {
-            borderRadius: '10px',
-            background: '#333',
-            color: '#fff',
-          },
+          style: { borderRadius: '10px', background: '#333', color: '#fff' }
         }}
       />
 
@@ -471,14 +524,7 @@ function App() {
                 <CreateTicketForm 
                   onSubmit={handleCreateTicket} 
                   onCancel={() => setFormData({
-                    titulo: '', 
-                    ubicacion: '', 
-                    descripcion: '', 
-                    departamento: '', 
-                    categoria: 'Mantenimiento', 
-                    prioridad: 'media', 
-                    nombre_contacto: '', 
-                    email_contacto: ''
+                    titulo: '', ubicacion: '', descripcion: '', departamento: '', categoria: 'Mantenimiento', prioridad: 'media', nombre_contacto: '', email_contacto: ''
                   })} 
                   formData={formData} 
                   setFormData={setFormData} 
@@ -510,9 +556,7 @@ function App() {
         
         <Route path="/register" element={<RegisterPage />} />
 
-        {/* ========================================================================= */}
-        {/* --- DASHBOARD DEL ADMINISTRADOR CON NUEVA TABLA TIPO EXCEL Y MODAL --- */}
-        {/* ========================================================================= */}
+        {/* --- DASHBOARD DEL ADMINISTRADOR --- */}
         <Route path="/admin/dashboard" element={
           usuario ? (
             <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
@@ -521,9 +565,7 @@ function App() {
                 
                 <StatsCards stats={stats} />
 
-                {/* --- NUEVA TABLA TIPO EXCEL (REPORTE ACTIVO) --- */}
                 {(() => {
-                    // 👇 Calculamos los tickets activos combinados con el nuevo filtro 👇
                     const ticketsActivosFiltrados = tickets.filter(t => 
                         t.estatus !== 'resuelto' && 
                         (filtroPrioridadActivos === 'Todas' || (t.prioridad || 'media') === filtroPrioridadActivos)
@@ -531,36 +573,16 @@ function App() {
 
                     return (
                         <div className="mt-8 mb-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            {/* --- ENCABEZADO CON LOS BOTONES DE PRIORIDAD --- */}
                             <div className="p-4 md:p-5 border-b border-gray-100 bg-gray-50 flex flex-col md:flex-row justify-between items-center gap-4">
-                                <h3 className="text-lg font-bold text-blue-900 whitespace-nowrap">Reportes Activos (Vista Rápida)</h3>
+                                <h3 className="text-lg font-bold text-blue-900 whitespace-nowrap">
+                                  Reportes Activos (Vista Rápida)
+                                </h3>
                                 
-                                {/* Botones en el centro */}
                                 <div className="flex flex-wrap justify-center bg-white border border-gray-200 rounded-lg p-1 shadow-sm gap-1">
-                                    <button 
-                                        onClick={() => setFiltroPrioridadActivos('Todas')} 
-                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${filtroPrioridadActivos === 'Todas' ? 'bg-gray-100 text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
-                                    >
-                                        Todas
-                                    </button>
-                                    <button 
-                                        onClick={() => setFiltroPrioridadActivos('alta')} 
-                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'alta' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
-                                    >
-                                        🔴 Alta
-                                    </button>
-                                    <button 
-                                        onClick={() => setFiltroPrioridadActivos('media')} 
-                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'media' ? 'bg-yellow-50 text-yellow-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
-                                    >
-                                        🟡 Media
-                                    </button>
-                                    <button 
-                                        onClick={() => setFiltroPrioridadActivos('baja')} 
-                                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'baja' ? 'bg-green-50 text-green-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
-                                    >
-                                        🟢 Baja
-                                    </button>
+                                    <button onClick={() => setFiltroPrioridadActivos('Todas')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${filtroPrioridadActivos === 'Todas' ? 'bg-gray-100 text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Todas</button>
+                                    <button onClick={() => setFiltroPrioridadActivos('alta')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'alta' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>🔴 Alta</button>
+                                    <button onClick={() => setFiltroPrioridadActivos('media')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'media' ? 'bg-yellow-50 text-yellow-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>🟡 Media</button>
+                                    <button onClick={() => setFiltroPrioridadActivos('baja')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'baja' ? 'bg-green-50 text-green-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>🟢 Baja</button>
                                 </div>
 
                                 <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
@@ -568,7 +590,6 @@ function App() {
                                 </span>
                             </div>
 
-                            {/* --- CUERPO DE LA TABLA --- */}
                             <div className="overflow-x-auto max-h-[400px]">
                                 <table className="w-full text-left border-collapse">
                                     <thead className="sticky top-0 bg-white shadow-sm z-10">
@@ -577,7 +598,7 @@ function App() {
                                             <th className="p-4 font-bold">Fecha</th>
                                             <th className="p-4 font-bold">Solicitante</th>
                                             <th className="p-4 font-bold">Título / Ubicación</th>
-                                            <th className="p-4 font-bold">Estatus</th>
+                                            <th className="p-4 font-bold text-center">Estatus</th>
                                             <th className="p-4 font-bold text-center">Prioridad</th>
                                         </tr>
                                     </thead>
@@ -595,18 +616,13 @@ function App() {
                                                     <p className="font-bold text-gray-800 truncate max-w-[250px]">{t.titulo}</p>
                                                     <p className="text-xs text-gray-500">📍 {t.ubicacion}</p>
                                                 </td>
-                                                <td className="p-4">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                                                        t.estatus === 'en_proceso' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
-                                                    }`}>
+                                                <td className="p-4 text-center">
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${t.estatus === 'en_proceso' ? 'bg-blue-100 text-blue-700' : t.estatus === 'resuelto' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
                                                         {t.estatus.replace('_', ' ')}
                                                     </span>
                                                 </td>
                                                 <td className="p-4 text-center">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                                                        (t.prioridad || 'media') === 'alta' ? 'bg-red-100 text-red-700' :
-                                                        (t.prioridad || 'media') === 'baja' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                                                    }`}>
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${(t.prioridad || 'media') === 'alta' ? 'bg-red-100 text-red-700' : (t.prioridad || 'media') === 'baja' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                                         {t.prioridad || 'MEDIA'}
                                                     </span>
                                                 </td>
@@ -622,105 +638,46 @@ function App() {
                     );
                 })()}
 
-                {/* --- GRÁFICAS ORIGINALES (Con corrección de consola) --- */}
+                {/* --- GRÁFICAS --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full min-w-0">
                     <h3 className="text-lg font-bold text-blue-900 mb-4 text-center">Reportes por Departamento</h3>
                     <div className="h-64 w-full min-w-0">
                       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
                         <PieChart>
-                          <Pie 
-                            data={getDatosDepartamentos()} 
-                            dataKey="cantidad" 
-                            nameKey="name" 
-                            cx="50%" 
-                            cy="50%" 
-                            outerRadius={80} 
-                            label
-                          >
+                          <Pie data={getDatosDepartamentos()} dataKey="cantidad" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                             {getDatosDepartamentos().map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip />
-                          <Legend />
+                          <Tooltip /><Legend />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
-
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full min-w-0">
                     <h3 className="text-lg font-bold text-blue-900 mb-4 text-center">Incidencias por Categoría</h3>
                     <div className="h-64 w-full min-w-0">
                       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
                         <BarChart data={getDatosCategorias()} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                          <XAxis dataKey="name" tick={{fontSize: 12}} />
-                          <YAxis allowDecimals={false} />
-                          <Tooltip cursor={{fill: '#f3f4f6'}} />
+                          <XAxis dataKey="name" tick={{fontSize: 12}} /><YAxis allowDecimals={false} /><Tooltip cursor={{fill: '#f3f4f6'}} />
                           <Bar dataKey="cantidad" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
                 </div>
-
               </div>
-
-              {/* --- MODAL FLOTANTE DEL ADMINISTRADOR --- */}
-              {ticketModalAdmin && (
-                <div 
-                    className="fixed inset-0 bg-black bg-opacity-50 z-[100] flex justify-center items-center p-4"
-                    onClick={() => { setTicketModalAdmin(null); setTicketEditando(null); }}
-                >
-                    <div 
-                        className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative p-6 animate-scale-in"
-                        onClick={(e) => e.stopPropagation()} 
-                    >
-                        {/* Botón de cierre */}
-                        <button 
-                            onClick={() => { setTicketModalAdmin(null); setTicketEditando(null); }}
-                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition p-1.5 rounded-full hover:bg-gray-100 z-10"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-
-                        <div className="pt-2">
-                            {/* Pasamos el ticket buscando actualizaciones en tiempo real */}
-                            <TicketCard 
-                                ticket={tickets.find(t => t.id === ticketModalAdmin.id) || ticketModalAdmin} 
-                                usuario={usuario} 
-                                misVotos={misVotos} 
-                                isEditing={ticketEditando === ticketModalAdmin.id} 
-                                editData={editData} 
-                                setEditData={setEditData} 
-                                listaUsuarios={listaUsuarios} 
-                                handlers={{ 
-                                    onVote: handleVotar, 
-                                    onEditStart: iniciarEdicion, 
-                                    onEditCancel: () => setTicketEditando(null), 
-                                    onEditSave: guardarEdicion, 
-                                    onPriorityChange: cambiarPrioridad, 
-                                    onDelete: async (id) => { 
-                                        await handleDeleteTicket(id); 
-                                        setTicketModalAdmin(null); 
-                                    } 
-                                }} 
-                            />
-                        </div>
-                    </div>
-                </div>
-              )}
             </main>
           ) : <Navigate to="/admin" />
         } />
 
+        {/* --- HISTORIAL (CON TABLA TIPO EXCEL ACTUALIZADA) --- */}
         <Route path="/admin/historial" element={
           usuario ? (
             <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
               <AdminMenu activo="historial" />
-              <div className="max-w-4xl mx-auto animate-fade-in-up">
+              <div className="max-w-6xl mx-auto animate-fade-in-up">
                 
                 <div className="bg-white p-6 rounded-2xl shadow-sm mb-8 border border-gray-100">
                   <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
@@ -731,103 +688,93 @@ function App() {
                   </h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Estatus</label>
-                      <select 
-                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" 
-                        value={filtroEstatus} 
-                        onChange={(e) => setFiltroEstatus(e.target.value)}
-                      >
-                        <option value="Todos">Todos</option>
-                        <option value="abierto">Abiertos</option>
-                        <option value="en_proceso">En Proceso</option>
-                        <option value="resuelto">Resueltos</option>
+                      <select className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" value={filtroEstatus} onChange={(e) => handleFiltroChange(setFiltroEstatus, e.target.value)}>
+                        <option value="Todos">Todos</option><option value="abierto">Abiertos</option><option value="en_proceso">En Proceso</option><option value="resuelto">Resueltos</option>
                       </select>
                     </div>
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
-                      <select 
-                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" 
-                        value={filtroDepartamento} 
-                        onChange={(e) => setFiltroDepartamento(e.target.value)}
-                      >
-                        {departamentosUnicos.map((dep) => (
-                          <option key={dep} value={dep}>{dep}</option>
-                        ))}
+                      <select className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" value={filtroDepartamento} onChange={(e) => handleFiltroChange(setFiltroDepartamento, e.target.value)}>
+                        {departamentosUnicos.map((dep) => (<option key={dep} value={dep}>{dep}</option>))}
                       </select>
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Desde (Fecha)</label>
-                      <input 
-                        type="date" 
-                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" 
-                        value={filtroFechaInicio} 
-                        onChange={(e) => setFiltroFechaInicio(e.target.value)} 
-                      />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+                      <input type="date" className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" value={filtroFechaInicio} onChange={(e) => handleFiltroChange(setFiltroFechaInicio, e.target.value)} />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Hasta (Fecha)</label>
-                      <input 
-                        type="date" 
-                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" 
-                        value={filtroFechaFin} 
-                        onChange={(e) => setFiltroFechaFin(e.target.value)} 
-                      />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+                      <input type="date" className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" value={filtroFechaFin} onChange={(e) => handleFiltroChange(setFiltroFechaFin, e.target.value)} />
                     </div>
                   </div>
 
                   <div className="flex justify-between items-center border-t pt-4 mt-2">
-                    <p className="text-sm text-gray-500 font-medium">
-                      Mostrando {ticketsAMostrar.length} resultados en pantalla
-                    </p>
-                    <button 
-                      onClick={exportarAExcel}
-                      className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition flex items-center gap-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                    <p className="text-sm text-gray-500 font-medium">Mostrando {ticketsAMostrar.length} resultados en esta página</p>
+                    <button onClick={exportarAExcel} className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       Descargar a Excel
                     </button>
                   </div>
                 </div>
 
-                <div className="text-center mb-6">
-                  <h2 className="text-xl font-bold text-gray-500">
-                    Resultados de la Búsqueda
-                  </h2>
+                {/* 👇 NUEVA TABLA DE HISTORIAL 👇 */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr className="text-gray-600 text-sm">
+                          <th className="p-4 font-bold">Folio</th>
+                          <th className="p-4 font-bold">Fecha</th>
+                          <th className="p-4 font-bold">Solicitante</th>
+                          <th className="p-4 font-bold">Título / Ubicación</th>
+                          <th className="p-4 font-bold text-center">Estatus</th>
+                          <th className="p-4 font-bold text-center">Prioridad</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm">
+                        {ticketsAMostrar.map((t) => (
+                          <tr 
+                            key={t.id} 
+                            onClick={() => setTicketModalAdmin(t)}
+                            className="border-b border-gray-50 hover:bg-blue-50 transition-colors cursor-pointer"
+                          >
+                            <td className="p-4 font-mono font-bold text-gray-500">#{t.id}</td>
+                            <td className="p-4 text-gray-600">{new Date(t.fecha_creacion).toLocaleDateString()}</td>
+                            <td className="p-4 font-medium text-gray-800">{t.nombre_contacto || "Interno"}</td>
+                            <td className="p-4">
+                              <p className="font-bold text-gray-800 truncate max-w-[200px]">{t.titulo}</p>
+                              <p className="text-xs text-gray-400">📍 {t.ubicacion}</p>
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${t.estatus === 'en_proceso' ? 'bg-blue-100 text-blue-700' : t.estatus === 'resuelto' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                {t.estatus.replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${(t.prioridad || 'media') === 'alta' ? 'bg-red-100 text-red-700' : (t.prioridad || 'media') === 'baja' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                {t.prioridad || 'MEDIA'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {ticketsAMostrar.length === 0 && (
+                      <div className="p-12 text-center text-gray-500 font-medium">No se encontraron tickets con estos filtros.</div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="space-y-6">
-                  {ticketsAMostrar.map((t) => (
-                    <TicketCard 
-                      key={t.id} 
-                      ticket={t} 
-                      usuario={usuario} 
-                      misVotos={misVotos} 
-                      isEditing={ticketEditando === t.id} 
-                      editData={editData} 
-                      setEditData={setEditData} 
-                      listaUsuarios={listaUsuarios} 
-                      handlers={{ 
-                        onVote: handleVotar, 
-                        onEditStart: iniciarEdicion, 
-                        onEditCancel: () => setTicketEditando(null), 
-                        onEditSave: guardarEdicion, 
-                        onDelete: handleDeleteTicket 
-                      }} 
-                    />
-                  ))}
-                  
-                  {ticketsAMostrar.length === 0 && (
-                    <div className="text-center py-12 bg-white rounded-2xl shadow-sm border border-gray-100">
-                      <p className="text-gray-500 text-lg">No se encontraron tickets con estos filtros.</p>
-                    </div>
-                  )}
-                </div>
+                {/* 👇 BOTONES DE PAGINACIÓN 👇 */}
+                {historialTotalPages > 1 && (
+                  <div className="flex justify-center items-center gap-4 mt-8 pb-8">
+                      <button onClick={() => setHistorialPage(p => Math.max(1, p - 1))} disabled={historialPage === 1} className={`px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm ${historialPage === 1 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 hover:scale-105'}`}>&larr; Anterior</button>
+                      <span className="text-gray-600 font-bold bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">Página {historialPage} de {historialTotalPages}</span>
+                      <button onClick={() => setHistorialPage(p => Math.min(historialTotalPages, p + 1))} disabled={historialPage === historialTotalPages} className={`px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm ${historialPage === historialTotalPages ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 hover:scale-105'}`}>Siguiente &rarr;</button>
+                  </div>
+                )}
               </div>
             </main>
           ) : <Navigate to="/admin" />
@@ -836,19 +783,8 @@ function App() {
         <Route path="/admin/crear" element={
           usuario ? (
             <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-              <AdminMenu activo="crear" />
-              <div className="max-w-2xl mx-auto">
-                <CreateTicketForm 
-                  onSubmit={handleCreateTicket} 
-                  onCancel={() => navigate('/admin/dashboard')} 
-                  formData={formData} 
-                  setFormData={setFormData} 
-                  onSearch={buscarSimilares} 
-                  sugerencias={sugerencias} 
-                  onVoteSugerencia={handleVotar} 
-                  misVotos={misVotos} 
-                  usuario={usuario} 
-                />
+              <AdminMenu activo="crear" /><div className="max-w-2xl mx-auto">
+                <CreateTicketForm onSubmit={handleCreateTicket} onCancel={() => navigate('/admin/dashboard')} formData={formData} setFormData={setFormData} onSearch={buscarSimilares} sugerencias={sugerencias} onVoteSugerencia={handleVotar} misVotos={misVotos} usuario={usuario} />
               </div>
             </main>
           ) : <Navigate to="/admin" />
@@ -857,21 +793,44 @@ function App() {
         <Route path="/admin/usuarios" element={
           usuario ? (
             <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-              <AdminMenu activo="usuarios" />
-              <UsersList 
-                users={listaUsuarios} 
-                onUserUpdated={cargarUsuarios} 
-              />
+              <AdminMenu activo="usuarios" /><UsersList users={listaUsuarios} onUserUpdated={cargarUsuarios} />
             </main>
           ) : <Navigate to="/admin" />
         } />
       </Routes>
 
+      {/* ========================================================================= */}
+      {/* --- MODAL GLOBAL DEL ADMINISTRADOR (Funciona para Panel y Reportes) --- */}
+      {/* ========================================================================= */}
+      {ticketModalAdmin && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4" onClick={() => { setTicketModalAdmin(null); setTicketEditando(null); }}>
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative p-6 animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => { setTicketModalAdmin(null); setTicketEditando(null); }} className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 transition p-2 rounded-full hover:bg-gray-100 z-10">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <div className="pt-2">
+                    <TicketCard 
+                        ticket={tickets.find(t => t.id === ticketModalAdmin.id) || historialTickets.find(t => t.id === ticketModalAdmin.id) || ticketModalAdmin} 
+                        usuario={usuario} misVotos={misVotos} 
+                        isEditing={ticketEditando === ticketModalAdmin.id} 
+                        editData={editData} setEditData={setEditData} 
+                        listaUsuarios={listaUsuarios} 
+                        handlers={{ 
+                            onVote: handleVotar, 
+                            onEditStart: iniciarEdicion, 
+                            onEditCancel: () => setTicketEditando(null), 
+                            onEditSave: guardarEdicion, 
+                            onPriorityChange: cambiarPrioridad, 
+                            onDelete: async (id) => { await handleDeleteTicket(id); setTicketModalAdmin(null); } 
+                        }} 
+                    />
+                </div>
+            </div>
+        </div>
+      )}
+
       {mostrarConfig && (
-        <ConfigModal 
-          usuario={usuario} 
-          onClose={() => setMostrarConfig(false)} 
-        />
+        <ConfigModal usuario={usuario} onClose={() => setMostrarConfig(false)} />
       )}
     </div>
   );

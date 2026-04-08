@@ -1,10 +1,24 @@
-import { API_URL } from '../config'; // Asegúrate de que esto esté arriba
+import { API_URL } from '../config';
 
-// Cabecera para saltar la pantalla de advertencia de ngrok
 const ngrokHeaders = {
   'ngrok-skip-browser-warning': 'true'
 };
 
+// 👇 NUEVO: Función para sacar el gafete VIP de la memoria del navegador 👇
+const getAuthHeaders = () => {
+    const token = localStorage.getItem('token_admin_canaco');
+    if (token) {
+        return { 
+            ...ngrokHeaders, 
+            'Authorization': `Bearer ${token}` 
+        };
+    }
+    return ngrokHeaders;
+};
+
+// ==========================================
+// 1. GESTIÓN DE USUARIOS
+// ==========================================
 export const loginUser = async (credentials) => {
   try {
     const response = await fetch(`${API_URL}/auth/login`, {
@@ -15,9 +29,16 @@ export const loginUser = async (credentials) => {
       },
       body: JSON.stringify(credentials),
     });
-
+    
     const data = await response.json();
+    
     if (!response.ok) return { error: data.error || 'Error al iniciar sesión' };
+    
+    // 👇 NUEVO: ¡Guardamos el Token en la caja fuerte del navegador! 👇
+    if (data.token) {
+        localStorage.setItem('token_admin_canaco', data.token);
+    }
+    
     return data.user;
   } catch (error) {
     console.error("Error login:", error);
@@ -25,14 +46,13 @@ export const loginUser = async (credentials) => {
   }
 };
 
-// Registrar nuevo usuario (Para el Admin)
 export const registerUser = async (userData) => {
   try {
     const response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        ...ngrokHeaders
+        ...ngrokHeaders // El registro no ocupa token
       },
       body: JSON.stringify(userData),
     });
@@ -43,11 +63,11 @@ export const registerUser = async (userData) => {
   }
 };
 
-// Obtener todos los usuarios
 export const getUsers = async () => {
   try {
     const response = await fetch(`${API_URL}/auth/users`, {
-      headers: { ...ngrokHeaders }
+      // 👇 Usamos getAuthHeaders() para identificarnos como administradores 👇
+      headers: getAuthHeaders() 
     });
     if (!response.ok) return []; 
     return await response.json();
@@ -57,12 +77,11 @@ export const getUsers = async () => {
   }
 };
 
-// Eliminar usuario
 export const deleteUser = async (id) => {
   try {
     const response = await fetch(`${API_URL}/auth/users/${id}`, {
       method: 'DELETE',
-      headers: { ...ngrokHeaders }
+      headers: getAuthHeaders() // 👇 Protegido
     });
     return response.ok;
   } catch (error) {
@@ -75,11 +94,29 @@ export const deleteUser = async (id) => {
 // 2. GESTIÓN DE TICKETS
 // ==========================================
 
-export const getTickets = async () => {
+export const getTickets = async (page = null, limit = null, filters = {}) => {
   try {
-    const response = await fetch(`${API_URL}/tickets`, {
-      headers: { ...ngrokHeaders }
+    let url = `${API_URL}/tickets`;
+    const params = new URLSearchParams();
+
+    if (page !== null && limit !== null) {
+      params.append('page', page);
+      params.append('limit', limit);
+      if (filters.estatus) params.append('estatus', filters.estatus);
+      if (filters.departamento) params.append('departamento', filters.departamento);
+      if (filters.fechaInicio) params.append('fechaInicio', filters.fechaInicio);
+      if (filters.fechaFin) params.append('fechaFin', filters.fechaFin);
+    }
+
+    const queryString = params.toString();
+    if (queryString) {
+      url += `?${queryString}`;
+    }
+
+    const response = await fetch(url, {
+      headers: { ...ngrokHeaders } // Público, no necesita token
     });
+    
     return await response.json();
   } catch (error) {
     console.error("Error getting tickets:", error);
@@ -87,13 +124,9 @@ export const getTickets = async () => {
   }
 };
 
-// --- 👇 NUEVO: FUNCIÓN PARA ENVIAR TICKET + FOTO 👇 ---
 export const createTicket = async (ticketData) => {
   try {
-    // 1. Creamos un "paquete" especial llamado FormData para soportar archivos
     const formData = new FormData();
-    
-    // 2. Metemos todos los datos (texto y foto) adentro del paquete
     for (const key in ticketData) {
       if (ticketData[key] !== null && ticketData[key] !== undefined && ticketData[key] !== '') {
          formData.append(key, ticketData[key]);
@@ -102,25 +135,17 @@ export const createTicket = async (ticketData) => {
 
     const response = await fetch(`${API_URL}/tickets`, {
       method: 'POST',
-      headers: { 
-        // ⚠️ OJO: Quitamos el 'Content-Type'. El navegador lo pondrá solito al ver que es FormData
-        ...ngrokHeaders
-      },
-      body: formData, // Mandamos el paquete en lugar de JSON.stringify
+      headers: { ...ngrokHeaders }, // Público, cualquiera puede crear
+      body: formData, 
     });
     
     const data = await response.json();
-    
-    return { 
-        ok: response.ok,
-        id: data.id 
-    };
+    return { ok: response.ok, id: data.id };
   } catch (error) {
     console.error("Error creating ticket:", error);
     return { ok: false };
   }
 };
-// --- 👆 FIN DEL CAMBIO 👆 ---
 
 export const updateTicket = async (id, updates) => {
   try {
@@ -128,7 +153,7 @@ export const updateTicket = async (id, updates) => {
       method: 'PUT',
       headers: { 
         'Content-Type': 'application/json',
-        ...ngrokHeaders
+        ...getAuthHeaders() // 👇 Protegido: Mostramos el gafete
       },
       body: JSON.stringify(updates),
     });
@@ -145,7 +170,7 @@ export const voteTicket = async (ticketId, userId) => {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        ...ngrokHeaders
+        ...ngrokHeaders // Público
       },
       body: JSON.stringify({ usuario_id: userId }),
     });
@@ -159,7 +184,7 @@ export const voteTicket = async (ticketId, userId) => {
 export const getMyVotes = async (userId) => {
   try {
     const response = await fetch(`${API_URL}/tickets/mis-votos/${userId}`, {
-      headers: { ...ngrokHeaders }
+      headers: { ...ngrokHeaders } // Público
     });
     return await response.json();
   } catch (error) {
@@ -172,12 +197,25 @@ export const deleteTicket = async (id) => {
   try {
     const response = await fetch(`${API_URL}/tickets/${id}`, {
       method: 'DELETE',
-      headers: { ...ngrokHeaders }
+      headers: getAuthHeaders() // 👇 MÁXIMA SEGURIDAD: Mostramos el gafete para borrar
     });
     const data = await response.json();
     return { ok: response.ok, ...data };
   } catch (error) {
     console.error("Error al eliminar ticket:", error);
     return { ok: false, error: "Error de conexión" };
+  }
+};
+
+export const getTicketBitacora = async (id) => {
+  try {
+    const response = await fetch(`${API_URL}/tickets/${id}/bitacora`, {
+      headers: getAuthHeaders() // 👇 Protegido: Solo admins ven la bitácora
+    });
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (error) {
+    console.error("Error al cargar bitácora:", error);
+    return [];
   }
 };

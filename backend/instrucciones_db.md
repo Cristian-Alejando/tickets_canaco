@@ -1,12 +1,12 @@
 # 🗄️ Instrucciones para la Base de Datos (CANACO)
-> **Última actualización:** 25 de Marzo de 2026
+> **Última actualización:** 7 de Abril de 2026
 
 Este documento contiene los scripts SQL necesarios para actualizar una base de datos existente o crear una nueva desde cero para el sistema de **Tickets CANACO**.
 
 ---
 
 ## 🛠️ 0. Parches y Actualizaciones
-*Ejecuta estos comandos **SOLO** si necesitas actualizar tu base de datos actual para soportar las nuevas funciones (Asignación de tickets, Soft-Delete, Evidencias, etc).*
+*Ejecuta estos comandos **SOLO** si necesitas actualizar tu base de datos actual para soportar las nuevas funciones (Asignación de tickets, Soft-Delete, Evidencias, Bitácora, etc).*
 
 ```sql
 -- 1. Soporte para invitados (nombre y email en ticket)
@@ -25,6 +25,16 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE;
 -- 5. Soporte para Departamento y Evidencia Fotográfica (Sharp/Multer)
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS departamento VARCHAR(100);
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS evidencia TEXT;
+
+-- 6. NUEVO: Soporte para Bitácora de Auditoría (Historial de cambios inmutable)
+CREATE TABLE IF NOT EXISTS bitacora_tickets (
+    id SERIAL PRIMARY KEY,
+    ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    accion VARCHAR(100) NOT NULL,
+    detalles TEXT,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ---
@@ -46,8 +56,8 @@ CREATE TABLE usuarios (
     email VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL, -- Soporta texto plano (legacy) y bcrypt
     rol VARCHAR(50) DEFAULT 'tecnico', -- admin, tecnico, empleado
-    telefono VARCHAR(20),             -- NUEVO: Para contacto directo
-    activo BOOLEAN DEFAULT TRUE       -- NUEVO: Para borrado lógico (soft delete)
+    telefono VARCHAR(20),             -- Para contacto directo
+    activo BOOLEAN DEFAULT TRUE       -- Para borrado lógico (soft delete)
 );
 
 -- B) Tabla de Tickets (Con asignación, contacto externo y evidencia)
@@ -57,29 +67,36 @@ CREATE TABLE tickets (
     descripcion TEXT,
     ubicacion VARCHAR(150),
     categoria VARCHAR(100),
-    estatus VARCHAR(50) DEFAULT 'abierto',
+    estatus VARCHAR(50) DEFAULT 'Abierto',
     prioridad VARCHAR(50) DEFAULT 'media',
     votos INTEGER DEFAULT 0,
     comentarios TEXT,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    fecha_actualizacion TIMESTAMP,
+    fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     fecha_cierre TIMESTAMP,
     usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL, 
-    
-    -- CAMPOS NUEVOS --
     nombre_contacto VARCHAR(100), 
     email_contacto VARCHAR(100),  
     asignado_a INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
     departamento VARCHAR(100),
-    evidencia TEXT
+    evidencia VARCHAR(255)
 );
 
 -- C) Tabla de Historial de Votos (Previene votos duplicados)
 CREATE TABLE votos_registro (
-    id SERIAL PRIMARY KEY,
     ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
     usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
-    UNIQUE(ticket_id, usuario_id)
+    PRIMARY KEY (ticket_id, usuario_id)
+);
+
+-- D) NUEVO: Tabla de Bitácora de Auditoría (Trazabilidad de cambios)
+CREATE TABLE bitacora_tickets (
+    id SERIAL PRIMARY KEY,
+    ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    accion VARCHAR(100) NOT NULL,
+    detalles TEXT,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
@@ -102,12 +119,13 @@ VALUES ('Soporte TI', 'soporte@canaco.com', '123456', 'tecnico', '8187654321', T
 
 ## 📌 Notas Técnicas y Despliegue
 
-### 🔒 Seguridad y Acceso
-- **Contraseñas**: El sistema utiliza `bcryptjs`. Si insertas usuarios manualmente con código SQL (como en el paso anterior), el sistema los detectará como texto plano temporalmente gracias al soporte *legacy*, y los encriptará automáticamente cuando inicias sesión.
-- **Borrado de Usuarios**: El sistema utiliza **"Soft Delete"**. Al eliminar un usuario en el panel, NO se borra la fila de la base de datos para no perder su historial de tickets, solo se actualiza su estado a `activo = FALSE`.
+### 🔒 Seguridad y Acceso (Fase Búnker)
+- **Contraseñas**: El sistema utiliza `bcryptjs`. Si insertas usuarios manualmente con código SQL, el sistema los detectará como texto plano temporalmente gracias al soporte *legacy*, y los encriptará automáticamente tras su primer inicio de sesión exitoso.
+- **Borrado de Usuarios**: El sistema utiliza **"Soft Delete"**. Al eliminar un usuario en el panel, NO se borra la fila para evitar romper las relaciones en la `bitacora_tickets` y `tickets`. Solo se actualiza su estado a `activo = FALSE`.
+- **Esterilización de Datos**: El backend utiliza `DOMPurify` para limpiar cualquier script malicioso (XSS) ANTES de insertar los datos en estas tablas.
 
 ### 🔌 Conexión Local
-- **Puerto Backend**: `3000`
+- **Puerto Backend**: `3000` (Soporta WebSockets)
 - **Base de Datos**: `PostgreSQL` (Puerto `5432`)
 
 ### ⚙️ Variables de Entorno Requeridas (`.env`)
@@ -117,8 +135,8 @@ DB_USER=postgres
 DB_PASSWORD=tu_contraseña_aqui
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=canaco_tickets
+DB_NAME=tickets_canaco
 JWT_SECRET=tu_secreto_super_seguro
-EMAIL_USER=tu_correo@gmail.com
+EMAIL_USER=helpdesk.canacomty@gmail.com
 EMAIL_PASS=tu_contraseña_de_aplicacion
 ```

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion'; 
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion'; 
 import { useNavigate } from 'react-router-dom';
 
 export default function CreateTicketForm({ 
@@ -16,16 +16,24 @@ export default function CreateTicketForm({
 
   const navigate = useNavigate();
 
-  // --- ESTADO PARA EL MODO ASISTENCIA ---
+  // --- 🛡️ ESTADO LOCAL PARA EL TÍTULO (Evita que el input se trabe) ---
+  const [localTitulo, setLocalTitulo] = useState(formData.titulo || '');
   const [esParaOtro, setEsParaOtro] = useState(false); 
+
+  // Sincronizar el título local si el formulario se limpia desde fuera (botón limpiar)
+  useEffect(() => {
+    if (formData.titulo === '' || formData.titulo === undefined) {
+      setLocalTitulo('');
+    }
+  }, [formData.titulo]);
 
   // =================================================================
   // 1. VALIDACIÓN EN TIEMPO REAL 
   // =================================================================
   const isFormValid = 
       (usuario && !esParaOtro) 
-      ? (formData.titulo?.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '') 
-      : (formData.nombre_contacto?.trim() !== '' && formData.departamento !== '' && formData.titulo?.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '');
+      ? (localTitulo.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '') 
+      : (formData.nombre_contacto?.trim() !== '' && formData.departamento !== '' && localTitulo.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '');
 
   // =================================================================
   // 2. FUNCIÓN DE ENVÍO PERSONALIZADA 
@@ -41,6 +49,7 @@ export default function CreateTicketForm({
     const dataToSend = (usuario && !esParaOtro) 
       ? { 
           ...formData, 
+          titulo: localTitulo, // Enviamos el título local
           nombre_contacto: usuario.nombre, 
           email_contacto: usuario.email, 
           departamento: usuario.departamento || '',
@@ -48,6 +57,7 @@ export default function CreateTicketForm({
         }
       : { 
           ...formData, 
+          titulo: localTitulo, // Enviamos el título local
           email_contacto: correoFinal, 
           esParaOtro: true 
         };
@@ -145,7 +155,7 @@ export default function CreateTicketForm({
                         </div>
                     </div>
 
-                    {/* --- SELECT DE DEPARTAMENTO --- */}
+                    {/* --- SELECT DE DEPARTAMENTO (REVISADO: 12 OPCIONES) --- */}
                     <div className="md:col-span-1">
                         <label className="block text-sm font-bold text-gray-700 mb-2">Departamento *</label>
                         <select 
@@ -180,38 +190,57 @@ export default function CreateTicketForm({
                 <input 
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
                     placeholder="Ej: Internet lento en sala de juntas..." 
-                    value={formData.titulo} 
-                    onChange={e => onSearch(e.target.value)} 
+                    value={localTitulo} 
+                    onChange={e => {
+                        const val = e.target.value;
+                        // 1. Actualizamos el estado LOCAL para que SÍ se vea lo que escribes
+                        setLocalTitulo(val);
+                        
+                        // 2. Avisamos al buscador (onSearch)
+                        if (val.length > 1) {
+                            onSearch(val);
+                        } else {
+                            onSearch(''); 
+                        }
+                    }} 
                     required autoComplete="off"
                 />
                 
                 {/* ALERTA DE DUPLICADOS */}
-                {sugerencias?.length > 0 && usuario && (
-                <div className="mt-4 bg-orange-50 border border-orange-200 rounded-xl p-5 animate-pulse">
-                    <div className="flex items-center gap-2 mb-3">
-                        <span className="text-orange-500 text-xl">⚠️</span>
-                        <p className="text-sm text-orange-800 font-bold">Posibles duplicados encontrados:</p>
-                    </div>
-                    <ul className="space-y-3">
-                    {sugerencias.map(s => (
-                        <li key={s.id} className="flex justify-between items-center bg-white p-3 rounded-lg border border-orange-100 shadow-sm">
-                        <div>
-                            <span className="text-sm font-semibold text-gray-800 block">{s.titulo}</span>
-                            <span className="text-xs text-gray-500">{s.ubicacion} • {s.estatus}</span>
+                <AnimatePresence>
+                    {sugerencias?.length > 0 && (
+                    <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="mt-4 bg-orange-50 border border-orange-200 rounded-xl p-5 overflow-hidden"
+                    >
+                        <div className="flex items-center gap-2 mb-3">
+                            <span className="text-orange-500 text-xl animate-bounce">⚠️</span>
+                            <p className="text-sm text-orange-800 font-bold">¿Tu problema es alguno de estos?</p>
                         </div>
-                        <button 
-                            type="button" 
-                            onClick={() => onVoteSugerencia(s.id, true)} 
-                            disabled={misVotos?.includes(s.id)}
-                            className={`text-xs px-4 py-2 rounded-lg font-bold transition ${misVotos?.includes(s.id) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}
-                        >
-                            {misVotos?.includes(s.id) ? 'Ya votaste' : '✋ Es este'}
-                        </button>
-                        </li>
-                    ))}
-                    </ul>
-                </div>
-                )}
+                        <ul className="space-y-3">
+                        {sugerencias.map(s => (
+                            <li key={s.id} className="flex justify-between items-center bg-white p-3 rounded-lg border border-orange-100 shadow-sm hover:border-orange-300 transition-colors">
+                            <div className="max-w-[60%]">
+                                <span className="text-sm font-semibold text-gray-800 block truncate">{s.titulo}</span>
+                                <span className="text-xs text-gray-500">📍 {s.ubicacion} • {s.estatus}</span>
+                            </div>
+                            <button 
+                                type="button" 
+                                onClick={() => onVoteSugerencia(s.id, true)} 
+                                disabled={misVotos?.includes(s.id)}
+                                className={`text-xs px-4 py-2 rounded-lg font-bold transition-all transform active:scale-95 ${misVotos?.includes(s.id) ? 'bg-gray-100 text-gray-400 border border-gray-200' : 'bg-orange-500 hover:bg-orange-600 text-white shadow-md'}`}
+                            >
+                                {misVotos?.includes(s.id) ? 'Ya reportado' : '✋ Yo también'}
+                            </button>
+                            </li>
+                        ))}
+                        </ul>
+                        <p className="text-[10px] text-orange-400 mt-3 text-center uppercase tracking-widest">Ahorra tiempo sumándote a reportes existentes</p>
+                    </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             {/* --- SELECT PARA UBICACIÓN --- */}
@@ -238,7 +267,7 @@ export default function CreateTicketForm({
                     rows="4" 
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
                     placeholder="Explica qué sucede..." 
-                    value={formData.descripcion} 
+                    value={formData.descripcion || ''} 
                     onChange={e => setFormData({...formData, descripcion: e.target.value})} 
                     required
                 />
@@ -300,7 +329,7 @@ export default function CreateTicketForm({
             </div>
             
             <div className="flex gap-4 pt-6">
-                <button type="button" onClick={onCancel} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-3 rounded-lg font-bold transition">
+                <button type="button" onClick={() => { setLocalTitulo(''); onCancel(); }} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 py-3 rounded-lg font-bold transition">
                     {usuario ? 'Cancelar' : 'Limpiar'}
                 </button>
                 

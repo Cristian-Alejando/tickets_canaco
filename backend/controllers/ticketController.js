@@ -1,8 +1,14 @@
 const pool = require('../config/db'); // Importamos la conexión
-const transporter = require('../config/mailer'); // <-- NUEVO: Importamos al cartero de Nodemailer
+const transporter = require('../config/mailer'); // Importamos al cartero de Nodemailer
+
+// 👇 Filtro de seguridad para limpiar textos maliciosos 👇
+const createDOMPurify = require('dompurify');
+const { JSDOM } = require('jsdom');
+const window = new JSDOM('').window;
+const purify = createDOMPurify(window);
 
 // ==========================================
-// 1. CREAR TICKET (¡AHORA CON EVIDENCIA!)
+// 1. CREAR TICKET (¡AHORA CON EVIDENCIA Y BITÁCORA!)
 // ==========================================
 const createTicket = async (req, res) => {
   const { 
@@ -17,18 +23,20 @@ const createTicket = async (req, res) => {
     departamento 
   } = req.body;
 
-  // 👇 NUEVO: Sacamos la ruta de la foto si es que el usuario subió una 👇
+  // 👇 NUEVO: Limpiamos los textos antes de usarlos 👇
+  const tituloLimpio = purify.sanitize(titulo);
+  const descripcionLimpia = purify.sanitize(descripcion);
+
   // Si req.file existe, armamos la ruta completa. Si no, lo dejamos como null.
   const rutaEvidencia = req.file ? `/uploads/${req.file.filename}` : null;
 
   try {
     const newTicket = await pool.query(
-      // 👇 NUEVO: Agregamos la columna 'evidencia' a la consulta SQL 👇
       `INSERT INTO tickets (titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto, departamento, estatus, evidencia) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Abierto', $10) RETURNING *`,
       [
-        titulo, 
-        descripcion, 
+        tituloLimpio, // Pasamos el texto limpio
+        descripcionLimpia, // Pasamos el texto limpio
         categoria || 'General', 
         prioridad || 'baja', 
         ubicacion, 
@@ -36,17 +44,24 @@ const createTicket = async (req, res) => {
         nombre_contacto,    
         email_contacto,
         departamento,
-        rutaEvidencia // <--- Pasamos la variable que contiene la ruta de la foto
+        rutaEvidencia 
       ]
     );
 
     const ticketGuardado = newTicket.rows[0];
 
-    // ==========================================
-    // INICIO DE LÓGICA DE CORREO AUTOMÁTICO (CREAR)
-    // ==========================================
-    const correoAdmin = 'cristianpowa777@gmail.com'; 
+    await pool.query(
+      `INSERT INTO bitacora_tickets (ticket_id, usuario_id, accion, detalles) VALUES ($1, $2, $3, $4)`,
+      [ticketGuardado.id, usuario_id || null, 'CREACIÓN', 'El reporte fue registrado en el sistema.']
+    );
 
+    const io = req.app.get('socketio');
+    if (io) {
+        io.emit('ticket_creado', ticketGuardado);
+    }
+
+    const correoAdmin = process.env.ADMIN_EMAIL;
+    
     if (email_contacto && email_contacto.trim() !== '') {
         const mailOptions = {
             from: '"Soporte CANACO" <helpdesk.canacomty@gmail.com>',
@@ -60,7 +75,7 @@ const createTicket = async (req, res) => {
                     <h3 style="color: #003366; margin-top: 20px;">Detalles de tu reporte:</h3>
                     <ul style="list-style-type: none; padding-left: 0;">
                         <li style="margin-bottom: 5px;"><strong>Folio:</strong> #${ticketGuardado.id}</li>
-                        <li style="margin-bottom: 5px;"><strong>Asunto reportado:</strong> ${titulo}</li>
+                        <li style="margin-bottom: 5px;"><strong>Asunto reportado:</strong> ${tituloLimpio}</li>
                         <li style="margin-bottom: 5px;"><strong>Ubicación:</strong> ${ubicacion} (${departamento})</li>
                         <li style="margin-bottom: 5px;"><strong>Estatus:</strong> Abierto 🟡</li>
                     </ul>
@@ -90,9 +105,7 @@ const createTicket = async (req, res) => {
             `
         };
 
-        transporter.sendMail(mailOptions)
-            .then(() => console.log(`✉️ Correo enviado para el ticket #${ticketGuardado.id}`))
-            .catch(err => console.error("❌ Error al enviar correo:", err));
+        transporter.sendMail(mailOptions).catch(err => console.error(err));
 
     } else {
         const mailOptionsAdmin = {
@@ -108,16 +121,14 @@ const createTicket = async (req, res) => {
                         <li><strong>Folio:</strong> #${ticketGuardado.id}</li>
                         <li><strong>Reportado por:</strong> ${nombre_contacto || 'Anónimo'}</li>
                         <li><strong>Ubicación:</strong> ${ubicacion} (${departamento})</li>
-                        <li><strong>Asunto reportado:</strong> ${titulo} - ${descripcion}</li>
+                        <li><strong>Asunto reportado:</strong> ${tituloLimpio} - ${descripcionLimpia}</li>
                     </ul>
                     <p><em>Favor de dar seguimiento presencial o por extensión.</em></p>
                 </div>
             `
         };
 
-        transporter.sendMail(mailOptionsAdmin)
-            .then(() => console.log(`✉️ Alerta de admin enviada para el ticket #${ticketGuardado.id}`))
-            .catch(err => console.error("❌ Error al enviar alerta:", err));
+        transporter.sendMail(mailOptionsAdmin).catch(err => console.error(err));
     }
 
     res.json(ticketGuardado);
@@ -131,20 +142,86 @@ const createTicket = async (req, res) => {
 // 2. OBTENER TODOS 
 // ==========================================
 const getAllTickets = async (req, res) => {
+  const page = parseInt(req.query.page);
+  const limit = parseInt(req.query.limit);
+  const { estatus, departamento, fechaInicio, fechaFin } = req.query;
+
   try {
-    const allTickets = await pool.query(`
-      SELECT 
-        t.*, 
-        COALESCE(u.nombre, t.nombre_contacto) AS usuario_nombre,
-        COALESCE(u.email, t.email_contacto) AS usuario_email,
-        tech.nombre AS tecnico_nombre
-      FROM tickets t
-      LEFT JOIN usuarios u ON t.usuario_id = u.id
-      LEFT JOIN usuarios tech ON t.asignado_a = tech.id
-      ORDER BY t.fecha_creacion DESC
-    `);
-    
-    res.json(allTickets.rows);
+    if (page && limit) {
+      const offset = (page - 1) * limit;
+      
+      let whereClauses = [];
+      let queryParams = [];
+      let paramIndex = 1;
+
+      if (estatus && estatus !== 'Todos') {
+        whereClauses.push(`t.estatus = $${paramIndex}`);
+        queryParams.push(estatus);
+        paramIndex++;
+      }
+      
+      if (departamento && departamento !== 'Todos') {
+        whereClauses.push(`t.departamento = $${paramIndex}`);
+        queryParams.push(departamento);
+        paramIndex++;
+      }
+      
+      if (fechaInicio) {
+        whereClauses.push(`t.fecha_creacion >= $${paramIndex}`);
+        queryParams.push(`${fechaInicio} 00:00:00`);
+        paramIndex++;
+      }
+      
+      if (fechaFin) {
+        whereClauses.push(`t.fecha_creacion <= $${paramIndex}`);
+        queryParams.push(`${fechaFin} 23:59:59`);
+        paramIndex++;
+      }
+
+      const whereString = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+      const totalQueryStr = `SELECT COUNT(*) FROM tickets t ${whereString}`;
+      const totalQuery = await pool.query(totalQueryStr, queryParams);
+      const totalTickets = parseInt(totalQuery.rows[0].count);
+
+      const paginatedQueryStr = `
+        SELECT 
+          t.*, 
+          COALESCE(u.nombre, t.nombre_contacto) AS usuario_nombre,
+          COALESCE(u.email, t.email_contacto) AS usuario_email,
+          tech.nombre AS tecnico_nombre
+        FROM tickets t
+        LEFT JOIN usuarios u ON t.usuario_id = u.id
+        LEFT JOIN usuarios tech ON t.asignado_a = tech.id
+        ${whereString}
+        ORDER BY t.fecha_creacion DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      `;
+      
+      const paginatedTickets = await pool.query(paginatedQueryStr, [...queryParams, limit, offset]);
+
+      res.json({
+        tickets: paginatedTickets.rows,
+        total: totalTickets,
+        totalPages: Math.ceil(totalTickets / limit),
+        currentPage: page
+      });
+
+    } else {
+      const allTickets = await pool.query(`
+        SELECT 
+          t.*, 
+          COALESCE(u.nombre, t.nombre_contacto) AS usuario_nombre,
+          COALESCE(u.email, t.email_contacto) AS usuario_email,
+          tech.nombre AS tecnico_nombre
+        FROM tickets t
+        LEFT JOIN usuarios u ON t.usuario_id = u.id
+        LEFT JOIN usuarios tech ON t.asignado_a = tech.id
+        ORDER BY t.fecha_creacion DESC
+      `);
+      
+      res.json(allTickets.rows);
+    }
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Error del servidor al obtener tickets");
@@ -152,7 +229,7 @@ const getAllTickets = async (req, res) => {
 };
 
 // ==========================================
-// 3. ACTUALIZAR (¡CON CORREO AUTOMÁTICO!)
+// 3. ACTUALIZAR 
 // ==========================================
 const updateTicket = async (req, res) => {
   const { id } = req.params;
@@ -165,14 +242,23 @@ const updateTicket = async (req, res) => {
     prioridad, 
     comentarios, 
     asignado_a,
-    departamento 
+    departamento,
+    admin_id 
   } = req.body;
 
+  // 👇 NUEVO: Limpiamos textos antes de usarlos 👇
+  const tituloLimpio = titulo ? purify.sanitize(titulo) : null;
+  const descripcionLimpia = descripcion ? purify.sanitize(descripcion) : null;
+  const comentariosLimpios = comentarios ? purify.sanitize(comentarios) : null;
+
   try {
+    const viejoTicketQuery = await pool.query('SELECT estatus, prioridad FROM tickets WHERE id = $1', [id]);
+    const viejo = viejoTicketQuery.rows.length > 0 ? viejoTicketQuery.rows[0] : null;
+
     const result = await pool.query(
       `UPDATE tickets 
-       SET titulo = $1,
-           descripcion = $2,
+       SET titulo = COALESCE($1, titulo),
+           descripcion = COALESCE($2, descripcion),
            ubicacion = $3,
            categoria = $4,
            estatus = $5,
@@ -184,8 +270,8 @@ const updateTicket = async (req, res) => {
            fecha_cierre = CASE WHEN $5::varchar = 'resuelto' THEN NOW() ELSE NULL END
        WHERE id = $10 RETURNING *`,
       [
-        titulo, descripcion, ubicacion, categoria, estatus, prioridad, 
-        comentarios, asignado_a, departamento, id            
+        tituloLimpio, descripcionLimpia, ubicacion, categoria, estatus, prioridad, 
+        comentariosLimpios, asignado_a, departamento, id            
       ]
     );
 
@@ -195,18 +281,41 @@ const updateTicket = async (req, res) => {
 
     const ticketAct = result.rows[0];
 
-    // ==========================================
-    // INICIO DE LÓGICA DE CORREO AUTOMÁTICO (ACTUALIZAR)
-    // ==========================================
+    if (viejo) {
+        let detallesCambios = [];
+        
+        if (viejo.estatus !== estatus) {
+            detallesCambios.push(`Estatus: ${viejo.estatus.toUpperCase()} ➡️ ${estatus.toUpperCase()}`);
+        }
+        
+        const viejaPrio = viejo.prioridad || 'media';
+        const nuevaPrio = prioridad || 'media';
+        if (viejaPrio !== nuevaPrio) {
+            detallesCambios.push(`Prioridad: ${viejaPrio.toUpperCase()} ➡️ ${nuevaPrio.toUpperCase()}`);
+        }
+
+        if (detallesCambios.length > 0) {
+            await pool.query(
+                `INSERT INTO bitacora_tickets (ticket_id, usuario_id, accion, detalles) VALUES ($1, $2, $3, $4)`,
+                [id, admin_id || null, 'ACTUALIZACIÓN', detallesCambios.join(' | ')]
+            );
+        }
+    }
+
+    const io = req.app.get('socketio');
+    if (io) {
+        io.emit('ticket_actualizado', ticketAct);
+    }
+
     if (ticketAct.email_contacto && ticketAct.email_contacto.trim() !== '') {
-        let colorEstatus = "#336699"; // Azul por defecto
+        let colorEstatus = "#336699"; 
         let tituloEstatus = "Actualización de tu reporte";
         
         if (estatus.toLowerCase() === 'resuelto') {
-            colorEstatus = "#28a745"; // Verde
+            colorEstatus = "#28a745"; 
             tituloEstatus = "¡Tu reporte ha sido resuelto!";
         } else if (estatus.toLowerCase() === 'en proceso') {
-            colorEstatus = "#ffc107"; // Amarillo
+            colorEstatus = "#ffc107"; 
         }
 
         const mailOptions = {
@@ -221,7 +330,7 @@ const updateTicket = async (req, res) => {
                     
                     <h3 style="color: #003366; margin-top: 20px;">Comentarios del departamento:</h3>
                     <p style="background-color: #f4f4f4; padding: 10px; border-left: 4px solid ${colorEstatus};">
-                        <em>${comentarios || 'Sin comentarios adicionales.'}</em>
+                        <em>${comentariosLimpios || 'Sin comentarios adicionales.'}</em>
                     </p>
                     <br><br>
                     <table cellpadding="0" cellspacing="0" border="0" style="font-family: 'Century Gothic', Arial, sans-serif; margin-top: 20px;">
@@ -266,6 +375,12 @@ const voteTicket = async (req, res) => {
   try {
     await pool.query("INSERT INTO votos_registro (ticket_id, usuario_id) VALUES ($1, $2)", [id, usuario_id]);
     const result = await pool.query("UPDATE tickets SET votos = votos + 1 WHERE id = $1 RETURNING *", [id]);
+    
+    const io = req.app.get('socketio');
+    if (io) {
+        io.emit('ticket_actualizado', result.rows[0]);
+    }
+    
     res.json(result.rows[0]);
   } catch (error) {
     if (error.code === '23505') return res.status(400).json({ error: "Ya has votado por este ticket" });
@@ -280,13 +395,16 @@ const voteTicket = async (req, res) => {
 const searchTickets = async (req, res) => {
   const { q } = req.query; 
   if (!q || q.trim() === '') return res.json([]);
+  
   try {
+    // 👇 NUEVO: Limpiamos la búsqueda 👇
+    const searchLimpia = purify.sanitize(q);
     const result = await pool.query(
       `SELECT t.*, u.nombre as usuario_nombre 
        FROM tickets t
        LEFT JOIN usuarios u ON t.usuario_id = u.id
        WHERE t.titulo ILIKE $1 AND t.estatus != 'resuelto' LIMIT 3`,
-      [`%${q}%`] 
+      [`%${searchLimpia}%`] 
     );
     res.json(result.rows);
   } catch (error) {
@@ -310,7 +428,7 @@ const getUserVotes = async (req, res) => {
 };
 
 // ==========================================
-// 7. BORRAR TICKET (¡CON AVISO DE CANCELACIÓN!)
+// 7. BORRAR TICKET 
 // ==========================================
 const deleteTicket = async (req, res) => {
   const { id } = req.params;
@@ -323,9 +441,11 @@ const deleteTicket = async (req, res) => {
 
     const ticketBorrado = result.rows[0];
 
-    // ==========================================
-    // INICIO DE LÓGICA DE CORREO AUTOMÁTICO (BORRAR)
-    // ==========================================
+    const io = req.app.get('socketio');
+    if (io) {
+        io.emit('ticket_eliminado', id);
+    }
+
     if (ticketBorrado.email_contacto && ticketBorrado.email_contacto.trim() !== '') {
         const mailOptions = {
             from: '"Soporte CANACO" <helpdesk.canacomty@gmail.com>',
@@ -370,6 +490,27 @@ const deleteTicket = async (req, res) => {
   }
 };
 
+// ==========================================
+// 8. OBTENER BITÁCORA DEL TICKET 
+// ==========================================
+const getTicketBitacora = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const bitacora = await pool.query(`
+            SELECT b.*, u.nombre as usuario_nombre 
+            FROM bitacora_tickets b 
+            LEFT JOIN usuarios u ON b.usuario_id = u.id 
+            WHERE b.ticket_id = $1 
+            ORDER BY b.fecha DESC
+        `, [id]);
+        
+        res.json(bitacora.rows);
+    } catch (error) {
+        console.error("Error al cargar bitácora:", error);
+        res.status(500).json({ error: "Error al obtener el historial de cambios" });
+    }
+};
+
 module.exports = {
   createTicket,
   getAllTickets,
@@ -377,5 +518,6 @@ module.exports = {
   voteTicket,
   searchTickets,
   getUserVotes,
-  deleteTicket
+  deleteTicket,
+  getTicketBitacora 
 };

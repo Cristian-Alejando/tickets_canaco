@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { calcularDias, formatearFecha } from '../utils/format';
 import { API_URL } from '../config'; 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { getTicketBitacora } from '../services/ticketService'; // <-- IMPORTAMOS EL SERVICIO
+import toast from 'react-hot-toast';
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -19,11 +22,32 @@ export default function TicketCard({
 }) {
   
   const { onVote, onEditStart, onEditCancel, onEditSave, onPriorityChange, onDelete } = handlers;
+  
+  // 👇 ESTADOS PARA LA BITÁCORA 👇
+  const [mostrarBitacora, setMostrarBitacora] = useState(false);
+  const [bitacoraDatos, setBitacoraDatos] = useState([]);
+  const [cargandoBitacora, setCargandoBitacora] = useState(false);
 
   const handleDeleteClick = () => {
     if (window.confirm(`⚠️ PELIGRO:\n\n¿Estás seguro de que quieres ELIMINAR el ticket "${ticket.titulo}"?\n\nEsta acción es permanente y NO se puede deshacer.`)) {
       onDelete(ticket.id);
     }
+  };
+
+  // 👇 FUNCIÓN PARA CARGAR LA LÍNEA DE TIEMPO 👇
+  const toggleBitacora = async () => {
+    if (!mostrarBitacora) {
+      setCargandoBitacora(true);
+      try {
+        const datos = await getTicketBitacora(ticket.id);
+        setBitacoraDatos(datos);
+      } catch (error) {
+        toast.error("No se pudo cargar el historial.");
+      } finally {
+        setCargandoBitacora(false);
+      }
+    }
+    setMostrarBitacora(!mostrarBitacora);
   };
 
   return (
@@ -32,7 +56,7 @@ export default function TicketCard({
       initial="hidden"
       animate="visible"
       whileHover={{ scale: 1.01, transition: { duration: 0.2 } }}
-      className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition relative overflow-hidden group"
+      className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition relative overflow-hidden group mb-4"
     >
       <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
           ticket.estatus === 'abierto' ? 'bg-orange-400' :
@@ -43,7 +67,7 @@ export default function TicketCard({
       {!isEditing ? (
         // --- MODO VISUALIZACIÓN ---
         <div className="flex flex-col md:flex-row justify-between items-start gap-4 pl-2">
-          <div className="flex-1">
+          <div className="flex-1 w-full">
             <div className="flex flex-wrap gap-2 mb-3 items-center">
                 <span className="text-xs font-bold bg-gray-100 text-gray-600 px-3 py-1 rounded-full uppercase tracking-wide">{ticket.categoria}</span>
                 
@@ -103,32 +127,34 @@ export default function TicketCard({
             </div>
 
             {/* SECCIÓN DE CONTACTO */}
-            <div className="mb-4 flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50/80">
-                <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-blue-600 font-bold text-lg shadow-sm">
+            <div className="mb-4 flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50/80 w-full sm:w-auto sm:inline-flex">
+                <div className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-blue-600 font-bold text-lg shadow-sm shrink-0">
                     {ticket.usuario_nombre ? ticket.usuario_nombre.charAt(0).toUpperCase() : '?'}
                 </div>
-                <div>
-                    <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                <div className="min-w-0">
+                    <p className="text-sm font-bold text-gray-800 flex items-center gap-2 truncate">
                         {ticket.usuario_nombre || 'Usuario Desconocido'}
-                        <span className="text-xs font-normal text-gray-400 bg-white px-2 rounded border border-gray-100">Solicitante</span>
+                        <span className="text-xs font-normal text-gray-400 bg-white px-2 rounded border border-gray-100 shrink-0">Solicitante</span>
                     </p>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mt-0.5">
                         {ticket.usuario_telefono ? (
-                            <a href={`tel:${ticket.usuario_telefono}`} className="flex items-center gap-1 hover:text-blue-600 transition font-medium text-blue-500">
+                            <a href={`tel:${ticket.usuario_telefono}`} className="flex items-center gap-1 hover:text-blue-600 transition font-medium text-blue-500 truncate">
                                 📞 {ticket.usuario_telefono}
                             </a>
                         ) : (
                             <span className="opacity-50">Sin teléfono</span>
                         )}
                         {ticket.usuario_email && (
-                            <span className="flex items-center gap-1 hidden sm:flex">✉️ {ticket.usuario_email}</span>
+                            <span className="flex items-center gap-1 truncate max-w-full sm:max-w-[200px]" title={ticket.usuario_email}>
+                              ✉️ {ticket.usuario_email}
+                            </span>
                         )}
                     </div>
                 </div>
             </div>
 
             {ticket.estatus === 'resuelto' && ticket.fecha_cierre && (
-              <div className="mt-4 text-xs text-green-800 font-semibold bg-green-50 px-3 py-2 rounded-lg border border-green-100 inline-block">
+              <div className="mt-4 text-xs text-green-800 font-semibold bg-green-50 px-3 py-2 rounded-lg border border-green-100 inline-block w-full sm:w-auto">
                  🏁 Finalizado el: {formatearFecha(ticket.fecha_cierre)}
               </div>
             )}
@@ -139,10 +165,72 @@ export default function TicketCard({
                 <p className="text-sm text-gray-700 italic">"{ticket.comentarios}"</p>
               </div>
             )}
+
+            {/* 👇 BOTÓN PARA VER BITÁCORA (SOLO ADMIN Y TÉCNICOS) 👇 */}
+            {usuario && (usuario.rol === 'admin' || usuario.rol === 'tecnico') && (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                <button 
+                  onClick={toggleBitacora}
+                  className="text-xs font-bold text-gray-500 hover:text-blue-600 flex items-center gap-1 transition"
+                >
+                  {mostrarBitacora ? '⬆️ Ocultar Historial' : '📖 Ver Historial de Cambios'}
+                </button>
+
+                {/* 👇 CONTENEDOR DE LA LÍNEA DE TIEMPO 👇 */}
+                <AnimatePresence>
+                  {mostrarBitacora && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-4 bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        {cargandoBitacora ? (
+                          <div className="text-center py-4 text-sm font-medium text-gray-400 animate-pulse">
+                            ⏳ Cargando historial...
+                          </div>
+                        ) : bitacoraDatos.length === 0 ? (
+                          <div className="text-center py-4 text-sm font-medium text-gray-400">
+                            No hay registros para este ticket aún.
+                          </div>
+                        ) : (
+                          <div className="relative border-l-2 border-blue-200 ml-3 space-y-6">
+                            {bitacoraDatos.map((log) => (
+                              <div key={log.id} className="relative pl-6">
+                                {/* Punto de la línea de tiempo */}
+                                <div className="absolute w-3 h-3 bg-blue-500 rounded-full -left-[7px] top-1.5 border-2 border-white shadow-sm"></div>
+                                
+                                <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                                  <div className="flex justify-between items-start mb-1">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                                      {new Date(log.fecha).toLocaleString()}
+                                    </span>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                                      log.accion === 'CREACIÓN' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                                    }`}>
+                                      {log.accion}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm font-medium text-gray-800 mb-1">{log.detalles}</p>
+                                  <p className="text-xs text-gray-500 flex items-center gap-1">
+                                    <span className="opacity-70">👤 Por:</span> {log.usuario_nombre || 'Sistema'}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
 
-          <div className="flex flex-col gap-3 min-w-[140px]">
-            {(usuario.rol === 'admin' || usuario.rol === 'tecnico') && (
+          <div className="flex flex-col gap-3 min-w-[140px] w-full md:w-auto mt-4 md:mt-0">
+            {(usuario?.rol === 'admin' || usuario?.rol === 'tecnico') && (
               <div className="mb-1">
                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 block">Prioridad</label>
                  <select value={ticket.prioridad || 'media'} onChange={(e) => onPriorityChange(ticket, e.target.value)}
@@ -165,7 +253,7 @@ export default function TicketCard({
                 </button>
             )}
 
-            {(usuario.rol === 'admin' || usuario.rol === 'tecnico') && (
+            {(usuario?.rol === 'admin' || usuario?.rol === 'tecnico') && (
               <button onClick={() => onEditStart(ticket)} className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md font-medium transition flex items-center justify-center gap-2">
                 <span>⚙️</span> Gestionar
               </button>
@@ -181,13 +269,13 @@ export default function TicketCard({
         >
           <h4 className="font-bold text-blue-900 mb-4 text-lg">🛠️ Gestionar Ticket</h4>
           
-          {usuario.rol === 'admin' && (
+          {usuario?.rol === 'admin' && (
             <button 
               onClick={handleDeleteClick}
-              className="absolute top-6 right-6 text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-100 px-3 py-2 rounded-lg transition flex items-center gap-1 border border-red-200 hover:border-red-300 bg-white"
+              className="absolute top-6 right-6 text-xs font-bold text-red-500 hover:text-red-700 hover:bg-red-100 px-3 py-2 rounded-lg transition flex items-center gap-1 border border-red-200 hover:border-red-300 bg-white shadow-sm"
               title="Eliminar este ticket permanentemente"
             >
-              🗑️ Eliminar Ticket
+              🗑️ <span className="hidden sm:inline">Eliminar</span>
             </button>
           )}
 
@@ -208,7 +296,6 @@ export default function TicketCard({
               <select 
                 className="w-full p-3 border border-gray-300 rounded-lg mt-1 bg-white focus:ring-2 focus:ring-blue-400 outline-none"
                 value={editData.asignado_a || ''}
-                // 👇 ESTA ES LA MAGIA: Si eligen "Sin asignar", mandamos null al backend 👇
                 onChange={e => setEditData({...editData, asignado_a: e.target.value === "" ? null : e.target.value})}
               >
                 <option value="">-- Sin Asignar --</option>
@@ -226,12 +313,18 @@ export default function TicketCard({
           
           <div className="mb-4">
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Nota o Solución</label>
-            <textarea rows="3" className="w-full p-3 border border-gray-300 rounded-lg mt-1 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none" style={{ position: 'relative', zIndex: 10 }}
+            <textarea rows="3" className="w-full p-3 border border-gray-300 rounded-lg mt-1 text-sm bg-white focus:ring-2 focus:ring-blue-400 outline-none resize-y" style={{ position: 'relative', zIndex: 10 }}
               placeholder="Describe qué se hizo o por qué se cancela..." value={editData.comentarios || ''} onChange={e => setEditData({...editData, comentarios: e.target.value})} />
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 mt-4">
             <button onClick={onEditCancel} className="text-sm text-gray-500 px-4 py-2 hover:bg-gray-100 rounded-lg font-medium transition">Cancelar</button>
-            <button onClick={() => onEditSave(ticket.id)} className="bg-green-600 text-white text-sm px-6 py-2 rounded-lg font-bold hover:bg-green-700 shadow-lg transition">💾 Guardar Cambios</button>
+            <button 
+              // 👇 AQUÍ LE MANDAMOS EL ID DE QUIÉN EDITA AL BACKEND 👇
+              onClick={() => onEditSave(ticket.id, usuario.id)} 
+              className="bg-green-600 text-white text-sm px-6 py-2 rounded-lg font-bold hover:bg-green-700 shadow-lg transition"
+            >
+              💾 Guardar Cambios
+            </button>
           </div>
         </motion.div>
       )}

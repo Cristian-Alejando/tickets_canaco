@@ -3,6 +3,9 @@ const multer = require('multer');
 const sharp = require('sharp'); // <-- 1. IMPORTAMOS SHARP (La licuadora de imágenes)
 const path = require('path');
 
+// 👇 NUEVO: Importamos a los cadeneros (Middlewares de Seguridad) 👇
+const { verifyToken, requireAdmin, requireAdminOrTech } = require('../middlewares/authMiddleware');
+
 const { 
   createTicket, 
   getAllTickets, 
@@ -10,14 +13,13 @@ const {
   voteTicket, 
   searchTickets,
   getUserVotes,
-  deleteTicket 
+  deleteTicket,
+  getTicketBitacora 
 } = require('../controllers/ticketController');
 
 // --- 2. CONFIGURACIÓN DE MULTER (ALTO RENDIMIENTO EN RAM) ---
-// En lugar de guardar en disco, lo retenemos en la memoria para procesarlo al vuelo con Sharp. Esto es mucho más rápido y eficiente.
 const storage = multer.memoryStorage();
 
-// Filtro estricto: Solo dejamos pasar imágenes reales, nada de PDFs o EXEs disfrazados. Esto mejora la seguridad y evita errores en Sharp.
 const fileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
@@ -26,79 +28,74 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-// Inicializamos el middleware con límite de peso (15MB)
 const upload = multer({ 
   storage: storage,
   fileFilter: fileFilter,
   limits: { fileSize: 15 * 1024 * 1024 } 
 });
 
-// --- NUEVO: ENVOLTORIO PARA ATRAPAR ERRORES DE MULTER ---
-// Este middleware intercepta los errores de Multer antes de que rompan el servidor
+// --- ENVOLTORIO PARA ATRAPAR ERRORES DE MULTER ---
 const atraparErroresMulter = (req, res, next) => {
   const uploadMiddleware = upload.single('evidencia');
   
   uploadMiddleware(req, res, function (err) {
     if (err instanceof multer.MulterError) {
-      // Error propio de Multer (ej. el archivo pesa más de los 15MB permitidos)
       return res.status(400).json({ error: 'La imagen es demasiado pesada. Máximo 15MB.' });
     } else if (err) {
-      // Error de nuestro filtro (ej. intentaron subir un PDF o un EXE)
       return res.status(400).json({ error: err.message });
     }
-    // Si no hubo ningún error, continuamos al siguiente paso (Sharp)
     next();
   });
 };
 
 // --- 3. MOTOR DE COMPRESIÓN (SHARP) ---
 const optimizarImagen = async (req, res, next) => {
-  if (!req.file) return next(); // Si no mandaron foto, seguimos de largo
+  if (!req.file) return next();
 
   try {
-    // Generamos el nombre único con extensión .webp (formato súper ligero)
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const filename = `ticket-${uniqueSuffix}.webp`;
     const filepath = path.join(__dirname, '../uploads', filename);
 
-    // Agarramos la foto flotante de la RAM, la achicamos y la guardamos en el disco
     await sharp(req.file.buffer)
-      .resize({ width: 1000, withoutEnlargement: true }) // Máximo 1000px de ancho
-      .webp({ quality: 80 }) // Compresión moderna
+      .resize({ width: 1000, withoutEnlargement: true }) 
+      .webp({ quality: 80 }) 
       .toFile(filepath); 
 
-    // Engañamos a tu controlador original pasándole el nombre de la nueva foto
     req.file.filename = filename;
-    
-    next(); // Brincamos a createTicket
+    next(); 
   } catch (error) {
     console.error("❌ Error en Sharp:", error);
-    next(); // Si algo falla, el ticket se crea de todos modos sin foto
+    next(); 
   }
 };
 
-// IMPORTANTE: En server.js ya definimos que todo esto vive bajo '/tickets'.
+// ==========================================
+// RUTAS DE LA API
+// ==========================================
 
-// 1. Obtener todos (GET /tickets)
+// 1. Obtener todos (PÚBLICO - Cualquiera puede ver el tablero)
 router.get('/', getAllTickets);
 
-// 2. Crear nuevo (POST /tickets)
-// <-- 4. LA MAGIA OCURRE AQUÍ: Atrapa Errores -> Pasa por Sharp (Comprime) -> createTicket (Guarda en BD)
+// 2. Crear nuevo (PÚBLICO - Cualquiera puede levantar un reporte)
 router.post('/', atraparErroresMulter, optimizarImagen, createTicket);
 
-// 3. Buscar (GET /tickets/buscar)
+// 3. Buscar (PÚBLICO)
 router.get('/buscar', searchTickets);
 
-// 4. Historial de votos (GET /tickets/mis-votos/:uid)
+// 4. Historial de votos (PÚBLICO)
 router.get('/mis-votos/:uid', getUserVotes);
 
-// 5. Actualizar ticket (PUT /tickets/:id)
-router.put('/:id', updateTicket);
+// 5. Actualizar ticket (🔒 PROTEGIDO: Solo Admin o Técnico)
+router.put('/:id', verifyToken, requireAdminOrTech, updateTicket);
 
-// 6. Votar (POST /tickets/:id/vote)
+// 6. Votar (PÚBLICO)
 router.post('/:id/vote', voteTicket);
 
-// 7. ELIMINAR TICKET (DELETE /tickets/:id)
-router.delete('/:id', deleteTicket);
+// 7. ELIMINAR TICKET (🔒 MÁXIMA SEGURIDAD: SOLO ADMIN)
+router.delete('/:id', verifyToken, requireAdmin, deleteTicket);
+
+// 8. OBTENER BITÁCORA DEL TICKET (🔒 PROTEGIDO: Solo Admin o Técnico)
+router.get('/:id/bitacora', verifyToken, requireAdminOrTech, getTicketBitacora);
 
 module.exports = router;

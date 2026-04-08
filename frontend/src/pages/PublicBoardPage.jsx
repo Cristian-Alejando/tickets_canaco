@@ -44,7 +44,6 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
                     <h1 className="text-3xl font-bold text-blue-900">Tablero de Mantenimiento</h1>
                     <p className="text-gray-500 mt-1">Transparencia y seguimiento de reportes en CANACO</p>
                 </div>
-                {/* BORRADO: Los botones de vista tarjetas/tabla ya no están aquí */}
                 <button 
                     onClick={() => navigate('/')} 
                     className="bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md hover:bg-blue-800 transition transform hover:scale-105"
@@ -55,7 +54,6 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
 
             {/* --- BARRA DE FILTROS --- */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* ... (Todo el bloque de selectores y fechas sigue igual) ... */}
                 <div>
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Estatus</label>
                     <select 
@@ -117,7 +115,7 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
                                     <th className="p-4 font-bold">Folio</th>
                                     <th className="p-4 font-bold">Fecha</th>
                                     <th className="p-4 font-bold">Título / Ubicación</th>
-                                    <th className="p-4 font-bold">Estatus</th>
+                                    <th className="p-4 font-bold text-center">Estatus</th>
                                     <th className="p-4 font-bold text-center">Afectados</th>
                                     <th className="p-4 font-bold text-center">Acción</th>
                                 </tr>
@@ -133,10 +131,10 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
                                         <td className="p-4 font-mono font-bold text-gray-500">#{t.id}</td>
                                         <td className="p-4 text-gray-600">{new Date(t.fecha_creacion).toLocaleDateString()}</td>
                                         <td className="p-4">
-                                            <p className="font-bold text-gray-800">{t.titulo}</p>
+                                            <p className="font-bold text-gray-800 max-w-[200px] sm:max-w-[300px] md:max-w-[400px] truncate">{t.titulo}</p>
                                             <p className="text-xs text-gray-500">📍 {t.ubicacion}</p>
                                         </td>
-                                        <td className="p-4">
+                                        <td className="p-4 text-center">
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
                                                 t.estatus === 'resuelto' ? 'bg-green-100 text-green-700' :
                                                 t.estatus === 'en_proceso' ? 'bg-blue-100 text-blue-700' :
@@ -180,17 +178,16 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
         {/* --- MODAL DE DETALLES DEL TICKET (Ventana Flotante) --- */}
         {selectedTicket && (
             <div 
-                className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4"
-                onClick={() => setSelectedTicket(null)} // Cierra al hacer clic fuera
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4"
+                onClick={() => setSelectedTicket(null)} 
             >
                 <div 
-                    className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative p-6 animate-scale-in"
-                    onClick={(e) => e.stopPropagation()} // Previene cierre al hacer clic dentro
+                    className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative p-6 animate-scale-in"
+                    onClick={(e) => e.stopPropagation()} 
                 >
-                    {/* Botón de cierre */}
                     <button 
                         onClick={() => setSelectedTicket(null)}
-                        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition p-1.5 rounded-full hover:bg-gray-100"
+                        className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition p-1.5 rounded-full hover:bg-gray-100 z-10"
                     >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -199,7 +196,8 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
 
                     <div className="pt-4">
                         <TicketCard 
-                            ticket={selectedTicket} 
+                            // 👇 NUEVO: Buscamos siempre el ticket más actualizado de la lista 👇
+                            ticket={ticketsFiltrados.find(t => t.id === selectedTicket.id) || selectedTicket} 
                             usuario={{ rol: 'publico' }} 
                             misVotos={misVotos} 
                             isEditing={false} 

@@ -3,77 +3,102 @@
 
 ## 📋 Tabla de Contenidos
 
-> **Destacado:** El sistema está construido como una **Progressive Web App (PWA)**, lo que permite a los colaboradores instalarlo directamente en sus celulares. Recientemente se implementó la subida de **Evidencias Visuales** mediante `Multer`, permitiendo tomar fotos desde la cámara del celular o subir archivos, los cuales son gestionados y blindados directamente en el servidor.
+> **Destacado:** El sistema está construido como una **Progressive Web App (PWA)**, lo que permite a los colaboradores instalarlo directamente en sus celulares. En sus últimas actualizaciones, se implementó una arquitectura en **Tiempo Real (WebSockets)**, compresión de **Evidencias Visuales (WebP)** y una barrera de **Seguridad Empresarial (Fase Búnker)** para proteger la integridad de los datos de CANACO.
 
 - [Descripción General](#-descripción-general)
 - [Arquitectura del Sistema](#-arquitectura-del-sistema)
 - [Características Principales](#-características-principales)
+- [Seguridad y Protección (Fase Búnker)](#-seguridad-y-protección-fase-búnker)
 - [Requisitos del Sistema](#-requisitos-del-sistema)
 - [Instalación y Configuración](#-instalación-y-configuración)
 - [Estructura del Proyecto](#-estructura-del-proyecto)
-- [Base de Datos](#-base-de-datos)
+- [Esquema de Base de Datos](#-esquema-de-base-de-datos)
 - [API Endpoints](#-api-endpoints)
-- [Frontend](#-frontend)
-- [Flujo de Trabajo](#-flujo-de-trabajo)
-- [Mantenimiento y Git](#-mantenimiento-y-git)
+- [Frontend y PWA](#-frontend-y-pwa)
+- [Flujo de Trabajo Operativo](#-flujo-de-trabajo-operativo)
+- [Mantenimiento y Control de Versiones](#-mantenimiento-y-control-de-versiones)
+- [Soporte y Contacto](#-soporte-y-contacto)
+
+---
 
 ## 🎯 Descripción General
 
-**Tickets CANACO** es un sistema integral de Mesa de Ayuda (Help Desk) diseñado para centralizar, priorizar y gestionar las incidencias y reportes internos de la Cámara Nacional de Comercio (CANACO) de Monterrey. 
+**Tickets CANACO** es un sistema integral de Mesa de Ayuda (Help Desk) diseñado a la medida para centralizar, priorizar y gestionar eficientemente las incidencias, mantenimientos y reportes internos de la Cámara Nacional de Comercio (CANACO) de Monterrey. 
 
-### Propósito
-- Centralizar todos los reportes de fallas (Sistemas, Mantenimiento, etc.) en un solo lugar.
-- Evitar la saturación de mensajes agrupando problemas similares mediante un sistema de "votos".
-- Mantener a los usuarios informados en tiempo real mediante correos electrónicos automáticos.
-- Proveer un panel administrativo para controlar tiempos de respuesta, responsables y estatus.
+### Propósito y Objetivos
+- **Centralización:** Unificar todos los reportes de fallas (Sistemas, Mantenimiento, Capital Humano, etc.) en un solo panel de control accesible desde cualquier dispositivo.
+- **Reducción de Ruido:** Evitar la saturación de correos y mensajes duplicados agrupando problemas similares mediante un sistema inteligente de "votos" o "afectaciones".
+- **Comunicación Activa:** Mantener a los usuarios informados en tiempo real mediante actualizaciones dinámicas en pantalla (WebSockets) y notificaciones por correo electrónico transaccional.
+- **Auditoría y Transparencia:** Proveer un panel administrativo robusto que permite controlar tiempos de respuesta, responsables, estatus, e incluye un registro inmutable (bitácora) de cada movimiento.
 
-### Usuarios Objetivo
-- **Administradores / Sistemas**: Gestión completa, asignación de técnicos, cambio de estatus y prioridades.
-- **Técnicos**: Visualización de tickets asignados y actualización de resolución.
-- **Colaboradores (Público)**: Creación rápida de reportes sin necesidad de inicio de sesión, y seguimiento de incidencias.
+### Usuarios Objetivo y Roles
+- **Administradores (Sistemas)**: Control total de la plataforma. Gestión de usuarios, asignación de técnicos, cambio de estatus, acceso a la bitácora de auditoría y descarga de reportes en Excel.
+- **Técnicos**: Visualización enfocada en los tickets que les han sido asignados, con permisos para actualizar la resolución y agregar comentarios técnicos.
+- **Colaboradores (Público General)**: Interfaz simplificada para la creación rápida de reportes sin necesidad de inicio de sesión, con capacidad de subir evidencia fotográfica y dar seguimiento a sus incidencias.
+
+---
 
 ## 🏗️ Arquitectura del Sistema
+
+La aplicación utiliza una arquitectura moderna basada en el stack PERN (PostgreSQL, Express, React, Node.js), vitaminada con conexiones bidireccionales y procesamiento en memoria.
 
 ```text
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │                 │    │                 │    │                 │
 │  Frontend (SPA) │◄──►│ Node.js Express │◄──►│   PostgreSQL    │
-│  (React + Vite) │    │   (API REST)    │    │   (pg Pool)     │
+│  (React + Vite) │WSS │   (API + WSS)   │    │   (pg Pool)     │
 │                 │    │                 │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
         ▲                        ▲                      ▲
         │                        │                      │
         ▼                        ▼                      ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  PWA Workbox &  │    │ Multer (Fotos) &│    │ Relaciones y    │
-│  Tailwind CSS   │    │ Nodemailer SMTP │    │ Almacenamiento  │
+│  PWA Workbox,   │    │ Multer & Sharp  │    │ Middlewares JWT,│
+│  Tailwind CSS & │    │ Nodemailer SMTP │    │ Helmet & RateLim│
+│ Socket.io Client│    │                 │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### Tecnologías Utilizadas
-- **Backend**: Node.js, Express.js
-- **Frontend**: React.js (Vite), React Router Dom
-- **Base de Datos**: PostgreSQL (conector `pg`)
-- **Autenticación**: `bcryptjs` (soporte híbrido para contraseñas legacy)
-- **Notificaciones**: `nodemailer` (Plantillas corporativas HTML)
-- **Manejo de Archivos**: `multer` (Evidencias fotográficas)
-- **Estilos**: Tailwind CSS
-- **PWA**: `vite-plugin-pwa`
+### Stack Tecnológico
+- **Backend**: Node.js, Express.js, Socket.io (WebSockets).
+- **Frontend**: React.js (Vite), React Router Dom, Tailwind CSS, Recharts (Gráficas), XLSX (Exportación).
+- **Base de Datos**: PostgreSQL (Conector `pg`).
+- **Seguridad**: `helmet`, `express-rate-limit`, `dompurify` + `jsdom`, `jsonwebtoken` (JWT), `bcryptjs`.
+- **Notificaciones**: `nodemailer` (SMTP con plantillas corporativas HTML).
+- **Manejo de Archivos**: `multer` (Buffer en RAM) + `sharp` (Conversión a WebP y redimensionamiento).
+- **PWA**: `vite-plugin-pwa` (Caché offline y Service Workers).
+
+---
 
 ## ✨ Características Principales
 
-### 📱 Experiencia de Usuario y PWA
-- **Instalable**: Funciona como app nativa en dispositivos móviles y de escritorio.
-- **Evidencia Visual**: Captura directa desde la cámara del celular o subida de imágenes.
-- **Interfaz Reactiva**: Actualizaciones y filtros de búsqueda sin recargar la página.
+### 📱 Experiencia de Usuario y Plataforma PWA
+- **App Instalable**: Funciona como una aplicación nativa tanto en dispositivos móviles (iOS/Android) como en equipos de escritorio.
+- **Tiempo Real Bidireccional**: La integración de WebSockets permite que los tableros, gráficas y notificaciones se actualicen automáticamente para todos los usuarios conectados sin necesidad de recargar la página.
+- **Evidencia Visual Optimizada**: Integración directa con la cámara del dispositivo móvil. Las fotos subidas son interceptadas en la memoria RAM del servidor y convertidas al formato de nueva generación `WebP` mediante la librería `Sharp`, reduciendo drásticamente el peso del archivo sin perder calidad.
+- **Gestión Masiva de Datos**: Implementación de paginación real procesada desde el motor de SQL (`LIMIT` y `OFFSET`) para manejar miles de registros sin degradar el rendimiento, junto con exportación de datos filtrados a Excel (`.xlsx`).
 
-### 🧠 Prevención de Duplicados
-- **Búsqueda Predictiva**: Sugiere tickets similares en tiempo real.
-- **Sistema de Votación**: El usuario pulsa "✋ Yo también" en lugar de crear un reporte duplicado.
+### 🧠 Inteligencia y Trazabilidad
+- **Búsqueda Predictiva Anti-Duplicados**: Un algoritmo sugiere tickets similares en tiempo real mientras el usuario teclea su reporte.
+- **Sistema de Votación ("Yo también")**: Permite a otros colaboradores sumarse a una incidencia existente en lugar de generar un ticket nuevo, incrementando el contador de "afectados" y elevando la prioridad naturalmente.
+- **Bitácora de Auditoría (Audit Log)**: Registro inmutable en base de datos de cada acción (quién cambió un estatus, cuándo se modificó la prioridad, qué comentarios se agregaron), garantizando transparencia absoluta.
 
-### ✉️ Automatización
-- **Correos Transaccionales**: Envío automático de correos (Apertura, Actualización, Resolución).
-- **Alertas de Seguridad**: Si un usuario crea un reporte anónimo, se alerta al administrador.
+### ✉️ Automatización de Flujos
+- **Correos Transaccionales**: El sistema envía correos corporativos formateados en HTML en cada etapa clave: Creación del ticket, Actualización de estatus/comentarios, Resolución del problema y Cancelación.
+- **Alertas Administrativas**: Si se genera un ticket "anónimo" (sin correo de contacto), el sistema alerta automáticamente a la mesa de ayuda para forzar un seguimiento presencial.
+
+---
+
+## 🛡️ Seguridad y Protección (Fase Búnker)
+
+El sistema ha sido fortificado con estándares de seguridad a nivel empresarial para proteger los endpoints expuestos y los datos internos de CANACO:
+
+1. **Rate Limiting Anti-Spam**: Implementación de `express-rate-limit` configurado para tolerar proxies inversos (Ngrok). Limita el tráfico a 150 peticiones por IP cada 15 minutos, previniendo ataques de denegación de servicio (DDoS), scripts de fuerza bruta y spam masivo de tickets.
+2. **Esterilización Anti-Veneno (XSS)**: Uso de `dompurify` junto con `jsdom` en el backend para limpiar y esterilizar todos los inputs del usuario (títulos, descripciones, comentarios). Esto neutraliza permanentemente cualquier inyección de código malicioso (`<script>`) antes de que toque la base de datos.
+3. **Autenticación Estricta (JWT)**: Todos los endpoints administrativos están protegidos por validación de JSON Web Tokens. El frontend extrae y anexa el token criptográfico en los headers (`Authorization: Bearer`), impidiendo modificaciones directas mediante herramientas externas como Postman.
+4. **Cabeceras Seguras**: Implementación de `helmet.js` para ocultar la firma del servidor Node.js y proteger contra vulnerabilidades comunes como Clickjacking y Sniffing de MIME types, adaptado para permitir la carga correcta de imágenes cross-origin.
+
+---
 
 ## 🚀 Instalación y Configuración
 
@@ -84,18 +109,18 @@ cd tickets_canaco
 ```
 
 ### 2. Configurar Base de Datos
-Abre tu gestor de PostgreSQL y crea la base de datos:
+Abre tu gestor de PostgreSQL y crea la base de datos principal:
 ```sql
 CREATE DATABASE tickets_canaco;
 ```
-*(Aplica los scripts encontrados en `backend/instrucciones_db.txt`)*
+*(Es indispensable aplicar los scripts completos encontrados en `backend/instrucciones_db.txt` que construyen las tablas relacionadas).*
 
 ### 3. Configurar Backend
 ```bash
 cd backend
 npm install
 ```
-Crea el archivo `.env` en la carpeta backend:
+Crea el archivo `.env` en la raíz de la carpeta `backend`:
 ```env
 PORT=3000
 DB_USER=tu_usuario_pg
@@ -103,63 +128,71 @@ DB_PASSWORD=tu_password
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=tickets_canaco
+JWT_SECRET=tu_secreto_super_seguro_y_largo
 EMAIL_USER=helpdesk.canacomty@gmail.com
-EMAIL_PASS=tu_app_password
+EMAIL_PASS=tu_app_password_de_google
 ```
-Inicia el servidor:
+Inicia el servidor en modo desarrollo:
 ```bash
 npm run dev
 ```
 
 ### 4. Configurar Frontend
-En una nueva terminal:
+Abre una nueva terminal independiente:
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### 5. Acceso Remoto desde Celular (ngrok)
-Para que tú o los técnicos puedan probar la subida de fotos y el sistema en vivo desde el celular, abre una **tercera terminal** y ejecuta:
+### 5. Acceso Remoto desde Redes Externas (ngrok)
+Para permitir que usuarios o técnicos accedan a la aplicación desde redes móviles, o para probar funcionalidades nativas como la cámara del celular, abre una **tercera terminal** y ejecuta:
 ```bash
 ngrok http 5173
 ```
-*(Copia el enlace `https://...` que dice **Forwarding** y ábrelo en el navegador de tu celular).*
+*(El enlace `https://...` generado por Ngrok será la URL de producción temporal. Ngrok gestionará correctamente los túneles WSS de Socket.io).*
+
+---
 
 ## 📁 Estructura del Proyecto
 
 ```text
 TICKETS_CANACO/
 ├── backend/                    
-│   ├── config/                 # Conexión DB y Nodemailer
-│   ├── controllers/            # authController, ticketController
-│   ├── routes/                 # Endpoints
-│   ├── uploads/                # 📸 Almacenamiento local de evidencias
-│   ├── .env                    # Variables de entorno
-│   └── server.js               # Entrypoint Express
+│   ├── config/                 # Conexión persistente de DB y configuración de Nodemailer SMTP
+│   ├── controllers/            # Lógica de negocio (authController, ticketController)
+│   ├── middlewares/            # 🛡️ authMiddleware (Verificación JWT, Control de Roles)
+│   ├── routes/                 # Enrutadores Express (API Endpoints)
+│   ├── uploads/                # 📸 Almacenamiento local de evidencias (Formato WebP)
+│   ├── .env                    # Variables de entorno (Ignorado en Git)
+│   └── server.js               # Entrypoint Principal (Express + Socket.io Server + Helmet)
 │
 ├── frontend/                   
-│   ├── public/                 # Iconos y manifest PWA
+│   ├── public/                 # Iconografía, logos y archivo manifest.webmanifest (PWA)
 │   ├── src/
-│   │   ├── components/         # Formularios, Tarjetas
-│   │   ├── pages/              # Tablero, Login, Registro
-│   │   ├── services/           # Peticiones Fetch (ticketService.js)
-│   │   └── config.js           # API_URL
-│   └── vite.config.js          # Vite, Proxy y Workbox (PWA)
+│   │   ├── components/         # Componentes reutilizables (Forms, TicketCard, Charts, Modals)
+│   │   ├── pages/              # Vistas principales (Tablero, Dashboard Admin, Login)
+│   │   ├── services/           # Peticiones Fetch centralizadas (Inyección automática de JWT)
+│   │   └── config.js           # Variables globales (API_URL)
+│   └── vite.config.js          # Configuración del empaquetador y plugins de Workbox
 │
-└── .gitignore                  # Exclusión de Node_modules y Uploads
+└── .gitignore                  # Reglas de exclusión para evitar subir dependencias y binarios
 ```
 
-## 🗄️ Base de Datos
+---
 
-### Tabla Principal: `tickets`
+## 🗄️ Esquema de Base de Datos
+
+El sistema utiliza un esquema relacional normalizado en PostgreSQL. A continuación se presentan las estructuras principales.
+
+### Tabla: `tickets` (Núcleo)
 ```sql
 CREATE TABLE tickets (
     id SERIAL PRIMARY KEY,
     titulo VARCHAR(255) NOT NULL,
     descripcion TEXT NOT NULL,
     categoria VARCHAR(100),
-    prioridad VARCHAR(50) DEFAULT 'baja',
+    prioridad VARCHAR(50) DEFAULT 'media',
     ubicacion VARCHAR(255) NOT NULL,
     departamento VARCHAR(100),
     estatus VARCHAR(50) DEFAULT 'Abierto',
@@ -176,80 +209,90 @@ CREATE TABLE tickets (
 );
 ```
 
+### Tabla: `bitacora_tickets` (Auditoría)
+```sql
+CREATE TABLE bitacora_tickets (
+    id SERIAL PRIMARY KEY,
+    ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+    accion VARCHAR(100) NOT NULL,
+    detalles TEXT,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Tabla: `votos_registro` (Anti-Duplicados)
+```sql
+CREATE TABLE votos_registro (
+    ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
+    usuario_id INTEGER REFERENCES usuarios(id) ON DELETE CASCADE,
+    PRIMARY KEY (ticket_id, usuario_id)
+);
+```
+
+---
+
 ## 🔌 API Endpoints
 
-### Autenticación
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `POST` | `/auth/login` | Autenticación híbrida |
-| `POST` | `/auth/register`| Creación de cuentas |
-| `GET`  | `/auth/users` | Listar usuarios |
+### Autenticación y Control de Usuarios
+| Método | Endpoint | Descripción | Nivel de Acceso |
+|--------|----------|-------------|-----------------|
+| `POST` | `/auth/login` | Autenticación de usuario y generación JWT | 🌐 Público |
+| `POST` | `/auth/register`| Creación de nuevas cuentas de empleado | 🌐 Público |
+| `GET`  | `/auth/users` | Listar todos los usuarios y estatus | 🔒 Admin |
+| `DELETE`| `/auth/users/:id`| Alternar estatus (Activar/Desactivar) | 🔒 Admin |
 
-### Gestión de Tickets
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `GET`  | `/tickets` | Lista completa de tickets |
-| `POST` | `/tickets` | **(FormData)** Crea ticket + sube foto + Correo |
-| `GET`  | `/tickets/buscar?q=` | Búsqueda predictiva |
-| `PUT`  | `/tickets/:id` | Actualiza estatus/prioridad + Correo |
-| `POST` | `/tickets/:id/vote`| Incrementa afectaciones |
-| `DELETE`|`/tickets/:id` | Borra ticket + Alerta |
+### Gestión Operativa de Tickets
+| Método | Endpoint | Descripción | Nivel de Acceso |
+|--------|----------|-------------|-----------------|
+| `GET`  | `/tickets` | Obtiene lista completa (Soporta paginación SQL) | 🌐 Público |
+| `POST` | `/tickets` | Multipart FormData (Sube foto, esteriliza, emite WSS) | 🌐 Público |
+| `GET`  | `/tickets/buscar?q=` | Búsqueda predictiva (Filtrado XSS) | 🌐 Público |
+| `PUT`  | `/tickets/:id` | Actualización de estatus/prioridad + Bitácora | 🔒 Admin/Técnico |
+| `POST` | `/tickets/:id/vote`| Incrementa contador de afectaciones | 🌐 Público |
+| `DELETE`|`/tickets/:id` | Eliminación definitiva + Alerta WSS | 🔒 Admin |
+| `GET`  |`/tickets/:id/bitacora`| Retorna el historial inmutable de cambios | 🔒 Admin/Técnico |
 
-## 🎨 Frontend
+---
 
-### Integración de Evidencias (FormData)
-Para enviar archivos e imágenes al backend:
-```javascript
-export const createTicket = async (ticketData) => {
-  const formData = new FormData();
-  for (const key in ticketData) {
-    if (ticketData[key]) formData.append(key, ticketData[key]);
-  }
-  const response = await fetch(`${API_URL}/tickets`, {
-    method: 'POST',
-    body: formData, 
-  });
-  return await response.json();
-};
-```
+## 🔄 Flujo de Trabajo Operativo
 
-### Configuración PWA (Workbox)
-El archivo `vite.config.js` excluye explícitamente la ruta de las fotos para evitar el bloqueo offline:
-```javascript
-workbox: {
-  navigateFallbackDenylist: [/^\/uploads/] 
-}
-```
-
-## 🔄 Flujo de Trabajo
-
-### 1. Reporte de Incidencia
+### 1. Detección y Reporte (Colaborador)
 ```mermaid
 graph TD
-    A[Usuario detecta falla] --> B[Abre PWA en celular]
-    B --> C[Escribe título]
-    C --> D{¿Aparece sugerencia?}
-    D -->|Sí| E[Pulsa '✋ Yo también']
-    D -->|No| F[Adjunta foto y llena datos]
-    E --> G[Suma voto a BD]
-    F --> H[Servidor guarda imagen y datos]
-    H --> I[Envía Email de Apertura]
+    A[Falla Detectada] --> B[Apertura de PWA]
+    B --> C[Escritura de Título]
+    C --> D{¿El sistema sugiere<br>algo similar?}
+    D -->|Sí| E[Clic en '✋ Yo también']
+    D -->|No| F[Formulario Completo + Evidencia Fotográfica]
+    E --> G[Aumenta Votos DB]
+    F --> H[Backend: Esteriliza XSS + Sharp comprime WebP]
+    H --> I[Inserción en BD + Bitácora]
+    G --> J((Emisión Socket.io))
+    I --> J
+    I --> K[Correo Automático de Apertura]
 ```
 
-### 2. Gestión Administrativa
+### 2. Gestión y Resolución (Sistemas / Admin)
 ```mermaid
 graph TD
-    A[Admin entra al Tablero] --> B[Visualiza tarjetas y prioridades]
-    B --> C[Asigna Técnico y cambia a 'En Proceso']
-    C --> D[Email de actualización al usuario]
-    D --> E[Técnico repara falla]
-    E --> F[Admin cambia estatus a 'Resuelto']
-    F --> G[Email de cierre con comentarios finales]
+    A((Socket.io Recibe Alerta)) --> B[Dashboard React se actualiza en vivo]
+    B --> C[Admin abre modal del Ticket]
+    C --> D[Evalúa Foto y Descripción]
+    D --> E[Asigna Técnico y cambia estatus a 'En Proceso']
+    E --> F[Registro automático en Bitácora]
+    F --> G[Correo de actualización al colaborador]
+    G --> H[Técnico repara falla física/lógica]
+    H --> I[Admin documenta comentarios y marca 'Resuelto']
+    I --> J[Correo de cierre final]
 ```
 
-## 🛠️ Mantenimiento y Git
+---
 
-Mantener el `.gitignore` configurado para evitar saturar el repositorio:
+## 🛠️ Mantenimiento y Control de Versiones
+
+Para asegurar la salud del repositorio remoto, es estricto mantener el archivo `.gitignore` configurado de la siguiente manera:
+
 ```text
 node_modules/
 backend/node_modules/
@@ -260,12 +303,14 @@ frontend/dist/
 frontend/dev-dist/
 backend/uploads/
 ```
-*Las imágenes en `/uploads` NO deben subirse al repositorio en la nube.*
+*Nota de Seguridad: Las imágenes subidas en `/uploads` contienen información operativa interna y NO deben sincronizarse ni subirse al repositorio público.*
 
 ---
 
 ## 📞 Soporte y Contacto
 
-- **Desarrollador**: Cristian Alejandro
-- **Rol**: Estudiante de Desarrollo y Gestión de Software / Mantenimiento de Sistemas
-- **Departamento**: Sistemas (CANACO Monterrey)
+- **Desarrollador Principal**: Cristian Alejandro
+- **Rol y Perfil**: Ingeniero en Desarrollo y Gestión de Software
+- **Departamento**: Sistemas
+- **Organización**: Cámara Nacional de Comercio (CANACO) Monterrey
+- **Contacto**: helpdesk.canacomty@gmail.com
