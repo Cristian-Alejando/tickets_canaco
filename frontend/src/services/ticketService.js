@@ -4,7 +4,7 @@ const ngrokHeaders = {
   'ngrok-skip-browser-warning': 'true'
 };
 
-// 👇 NUEVO: Función para sacar el gafete VIP de la memoria del navegador 👇
+// 👇 Función para sacar el gafete VIP de la memoria del navegador 👇
 const getAuthHeaders = () => {
     const token = localStorage.getItem('token_admin_canaco');
     if (token) {
@@ -34,7 +34,7 @@ export const loginUser = async (credentials) => {
     
     if (!response.ok) return { error: data.error || 'Error al iniciar sesión' };
     
-    // 👇 NUEVO: ¡Guardamos el Token en la caja fuerte del navegador! 👇
+    // 👇 ¡Guardamos el Token en la caja fuerte del navegador! 👇
     if (data.token) {
         localStorage.setItem('token_admin_canaco', data.token);
     }
@@ -216,6 +216,22 @@ export const getTicketBitacora = async (id) => {
     return await response.json();
   } catch (error) {
     console.error("Error al cargar bitácora:", error);
+    return [];
+  }
+};
+
+// ==========================================
+// 3. BUSCADOR INTELIGENTE
+// ==========================================
+export const searchTickets = async (query, ubicacion) => {
+  try {
+    // Inyectamos la palabra y el piso en la URL para que el backend lo atrape
+    const response = await fetch(`${API_URL}/tickets/buscar?q=${query}&ubicacion=${ubicacion}`, {
+      headers: { ...ngrokHeaders }
+    });
+    return await response.json();
+  } catch (error) {
+    console.error("Error buscando tickets sugeridos:", error);
     return [];
   }
 };

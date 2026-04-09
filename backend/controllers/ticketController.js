@@ -23,7 +23,7 @@ const createTicket = async (req, res) => {
     departamento 
   } = req.body;
 
-  // 👇 NUEVO: Limpiamos los textos antes de usarlos 👇
+  // Limpiamos los textos antes de usarlos
   const tituloLimpio = purify.sanitize(titulo);
   const descripcionLimpia = purify.sanitize(descripcion);
 
@@ -32,11 +32,12 @@ const createTicket = async (req, res) => {
 
   try {
     const newTicket = await pool.query(
+      // 👇 CORRECCIÓN AQUÍ: Cambiamos 'Abierto' por 'abierto' (todo minúscula) 👇
       `INSERT INTO tickets (titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto, departamento, estatus, evidencia) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Abierto', $10) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'abierto', $10) RETURNING *`,
       [
-        tituloLimpio, // Pasamos el texto limpio
-        descripcionLimpia, // Pasamos el texto limpio
+        tituloLimpio,
+        descripcionLimpia,
         categoria || 'General', 
         prioridad || 'baja', 
         ubicacion, 
@@ -393,19 +394,41 @@ const voteTicket = async (req, res) => {
 // 5. BUSCADOR
 // ==========================================
 const searchTickets = async (req, res) => {
-  const { q } = req.query; 
-  if (!q || q.trim() === '') return res.json([]);
+  // 1. Recibimos también la ubicación desde el frontend
+  const { q, ubicacion } = req.query; 
+  
+  // 2. Si falta el texto o falta el piso, no buscamos (ahorra recursos)
+  if (!q || q.trim() === '' || !ubicacion) return res.json([]);
   
   try {
-    // 👇 NUEVO: Limpiamos la búsqueda 👇
+    // Mantenemos tu limpieza de seguridad intacta 👇
     const searchLimpia = purify.sanitize(q);
-    const result = await pool.query(
-      `SELECT t.*, u.nombre as usuario_nombre 
-       FROM tickets t
-       LEFT JOIN usuarios u ON t.usuario_id = u.id
-       WHERE t.titulo ILIKE $1 AND t.estatus != 'resuelto' LIMIT 3`,
-      [`%${searchLimpia}%`] 
+    
+    // 3. Lógica de separación de palabras
+    // Ignoramos palabras de 1 o 2 letras, y hacemos una lista negra para excepciones de 3 letras
+    const palabrasIgnoradas = ['con', 'del', 'las', 'los', 'por', 'que'];
+    const palabras = searchLimpia.split(' ').filter(p => 
+        p.length >= 3 && !palabrasIgnoradas.includes(p.toLowerCase())
     );
+
+    // Si el usuario solo escribió "el la de", no buscamos nada
+    if (palabras.length === 0) return res.json([]);
+
+    // 4. Construcción de la consulta dinámica
+    const querySQL = `
+      SELECT t.*, u.nombre as usuario_nombre 
+      FROM tickets t
+      LEFT JOIN usuarios u ON t.usuario_id = u.id
+      WHERE t.ubicacion = $1 
+      AND (${palabras.map((_, i) => `t.titulo ILIKE $${i + 2}`).join(' OR ')})
+      AND t.estatus != 'resuelto' 
+      LIMIT 3
+    `;
+
+    // 5. Inyectamos los valores: [ubicacion, %palabra1%, %palabra2%...]
+    const values = [ubicacion, ...palabras.map(p => `%${p}%`)];
+
+    const result = await pool.query(querySQL, values);
     res.json(result.rows);
   } catch (error) {
     console.error(error);

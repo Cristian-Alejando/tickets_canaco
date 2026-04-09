@@ -5,7 +5,7 @@ import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { Toaster, toast } from 'react-hot-toast'; 
 
-// 👇 NUEVO: Importamos Socket.io para escuchar al servidor en tiempo real 👇
+// Importamos Socket.io para escuchar al servidor en tiempo real
 import { io } from 'socket.io-client';
 
 // --- LIBRERÍAS DE GRÁFICAS (FASE 2) ---
@@ -33,7 +33,8 @@ import {
   voteTicket,
   getMyVotes,
   getUsers,
-  deleteTicket
+  deleteTicket,
+  searchTickets
 } from './services/ticketService';
 
 function App() {
@@ -42,8 +43,10 @@ function App() {
     return usuarioGuardado ? JSON.parse(usuarioGuardado) : null;
   });
 
+  // Todos los tickets (usado principalmente para el Dashboard y métricas rápidas)
   const [tickets, setTickets] = useState([]); 
   
+  // Estados para la paginación profunda en el Historial
   const [historialTickets, setHistorialTickets] = useState([]);
   const [historialPage, setHistorialPage] = useState(1);
   const [historialTotalPages, setHistorialTotalPages] = useState(1);
@@ -64,9 +67,29 @@ function App() {
   const [misVotos, setMisVotos] = useState([]);
   const [sugerencias, setSugerencias] = useState([]);
   const [ticketEditando, setTicketEditando] = useState(null);
-  
   const [ticketModalAdmin, setTicketModalAdmin] = useState(null);
+  
+  const [mostrarConfig, setMostrarConfig] = useState(false);
+  const [listaUsuarios, setListaUsuarios] = useState([]);
+
+  // ==========================================
+  // FILTROS EXCLUSIVOS PARA EL HISTORIAL (Llaman al Backend)
+  // ==========================================
+  const [filtroFechaInicio, setFiltroFechaInicio] = useState('');
+  const [filtroFechaFin, setFiltroFechaFin] = useState('');
+  const [filtroDepartamento, setFiltroDepartamento] = useState('Todos');
+  const [filtroEstatus, setFiltroEstatus] = useState('Todos'); 
+  const [filtroTexto, setFiltroTexto] = useState('');
+
+  // ==========================================
+  // NUEVOS FILTROS EXCLUSIVOS PARA EL PANEL (Dashboard) (Locales)
+  // ==========================================
   const [filtroPrioridadActivos, setFiltroPrioridadActivos] = useState('Todas'); 
+  const [dashFiltroTexto, setDashFiltroTexto] = useState('');
+  const [dashFiltroDepartamento, setDashFiltroDepartamento] = useState('Todos');
+  const [dashFiltroEstatus, setDashFiltroEstatus] = useState('Todos_Activos'); // Excluye "resueltos"
+  const [dashFiltroFechaInicio, setDashFiltroFechaInicio] = useState('');
+  const [dashFiltroFechaFin, setDashFiltroFechaFin] = useState('');
 
   const [editData, setEditData] = useState({
     estatus: '',
@@ -75,54 +98,58 @@ function App() {
     asignado_a: ''
   });
 
-  const [mostrarConfig, setMostrarConfig] = useState(false);
-  const [listaUsuarios, setListaUsuarios] = useState([]);
+  // Función para resetear filtros del Historial
+  const limpiarFiltrosHistorial = () => {
+    setFiltroEstatus('Todos');
+    setFiltroDepartamento('Todos');
+    setFiltroFechaInicio('');
+    setFiltroFechaFin('');
+    setFiltroTexto('');
+    setHistorialPage(1);
+  };
 
-  const [filtroFechaInicio, setFiltroFechaInicio] = useState('');
-  const [filtroFechaFin, setFiltroFechaFin] = useState('');
-  const [filtroDepartamento, setFiltroDepartamento] = useState('Todos');
-  const [filtroEstatus, setFiltroEstatus] = useState('resuelto'); 
+  // Función para resetear filtros del Dashboard
+  const limpiarFiltrosDashboard = () => {
+    setFiltroPrioridadActivos('Todas');
+    setDashFiltroTexto('');
+    setDashFiltroDepartamento('Todos');
+    setDashFiltroEstatus('Todos_Activos');
+    setDashFiltroFechaInicio('');
+    setDashFiltroFechaFin('');
+  };
 
-  // 👇 NUEVO EFECTO: CONEXIÓN DE WEBSOCKETS 👇
+  // EFECTO: CONEXIÓN DE WEBSOCKETS
   useEffect(() => {
-    // Nos conectamos al radio del backend usando la URL principal (sin el /api)
     const socketURL = API_URL.replace('/api', ''); 
     const socket = io(socketURL);
 
-    // Evento 1: Ticket Creado
     socket.on('ticket_creado', (nuevoTicket) => {
         toast.success(`🎫 ¡Nuevo ticket recibido: ${nuevoTicket.titulo}!`, { icon: '🔔' });
         cargarTicketsGlobales(); 
         if (usuario) cargarHistorialPaginado(historialPage);
     });
 
-    // Evento 2: Ticket Actualizado o Votado
     socket.on('ticket_actualizado', (ticketActualizado) => {
         cargarTicketsGlobales();
         if (usuario) cargarHistorialPaginado(historialPage);
-        // Si el admin tiene abierto el modal de este mismo ticket, actualizamos el modal también
         if (ticketModalAdmin && ticketModalAdmin.id === ticketActualizado.id) {
             setTicketModalAdmin(ticketActualizado);
         }
     });
 
-    // Evento 3: Ticket Eliminado
     socket.on('ticket_eliminado', (ticketId) => {
         cargarTicketsGlobales();
         if (usuario) cargarHistorialPaginado(historialPage);
-        // Si el admin tiene el modal de este ticket abierto, se lo cerramos
         if (ticketModalAdmin && ticketModalAdmin.id === ticketId) {
             setTicketModalAdmin(null);
             toast('El ticket que estabas viendo fue eliminado', { icon: '⚠️' });
         }
     });
 
-    // Limpiamos la antena cuando el componente se desmonta
     return () => {
         socket.disconnect();
     };
-  }, [usuario, historialPage, filtroEstatus, filtroDepartamento, filtroFechaInicio, filtroFechaFin, ticketModalAdmin]);
-  // 👆 ------------------------------------------- 👆
+  }, [usuario, historialPage, filtroEstatus, filtroDepartamento, filtroFechaInicio, filtroFechaFin, filtroTexto, ticketModalAdmin]);
 
   useEffect(() => {
     cargarTicketsGlobales();
@@ -137,9 +164,12 @@ function App() {
 
   useEffect(() => {
     if (usuario) {
-      cargarHistorialPaginado(historialPage);
+      const timer = setTimeout(() => {
+        cargarHistorialPaginado(historialPage);
+      }, 300);
+      return () => clearTimeout(timer);
     }
-  }, [historialPage, filtroEstatus, filtroDepartamento, filtroFechaInicio, filtroFechaFin, usuario]);
+  }, [historialPage, filtroEstatus, filtroDepartamento, filtroFechaInicio, filtroFechaFin, filtroTexto, usuario]);
 
   const cargarTicketsGlobales = async () => {
     try {
@@ -161,7 +191,8 @@ function App() {
         estatus: filtroEstatus,
         departamento: filtroDepartamento,
         fechaInicio: filtroFechaInicio,
-        fechaFin: filtroFechaFin
+        fechaFin: filtroFechaFin,
+        texto: filtroTexto 
       };
       
       const data = await getTickets(page, 15, filters); 
@@ -266,7 +297,7 @@ function App() {
   const handleLogout = () => {
     setUsuario(null);
     localStorage.removeItem('sesion_admin_canaco');
-    localStorage.removeItem('token_admin_canaco'); // <--- AÑADE ESTA LÍNEA
+    localStorage.removeItem('token_admin_canaco'); 
     toast('Sesión cerrada correctamente', { icon: '👋' }); 
     navigate('/');
   };
@@ -359,18 +390,21 @@ function App() {
     });
   };
 
-  const buscarSimilares = async (txt) => {
+  const buscarSimilares = async (txt, ubicacionActual) => {
     setFormData((prev) => ({ ...prev, titulo: txt }));
-    if (txt.length < 3) {
+    const piso = ubicacionActual || formData.ubicacion;
+
+    if (txt.length < 3 || !piso) {
       setSugerencias([]);
       return;
     }
+
     try {
-      const res = await fetch(`${API_URL}/tickets/buscar?q=${txt}`);
-      const data = await res.json();
+      const data = await searchTickets(txt, piso);
       setSugerencias(data);
     } catch (e) {
       console.error(e);
+      setSugerencias([]);
     }
   };
 
@@ -488,6 +522,11 @@ function App() {
     </div>
   );
 
+  // Función auxiliar para limpiar el texto de tildes para la búsqueda local
+  const normalizarTexto = (str) => {
+    return str ? str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : '';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
       <Toaster 
@@ -556,7 +595,6 @@ function App() {
         
         <Route path="/register" element={<RegisterPage />} />
 
-        {/* --- DASHBOARD DEL ADMINISTRADOR --- */}
         <Route path="/admin/dashboard" element={
           usuario ? (
             <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
@@ -566,28 +604,84 @@ function App() {
                 <StatsCards stats={stats} />
 
                 {(() => {
-                    const ticketsActivosFiltrados = tickets.filter(t => 
-                        t.estatus !== 'resuelto' && 
-                        (filtroPrioridadActivos === 'Todas' || (t.prioridad || 'media') === filtroPrioridadActivos)
-                    );
+                    // 👇 APLICACIÓN DE LOS FILTROS LOCALES DEL PANEL 👇
+                    const textoBuscado = normalizarTexto(dashFiltroTexto);
+                    
+                    const ticketsActivosFiltrados = tickets.filter(t => {
+                        // REGLA DE ORO DEL PANEL: NUNCA mostrar resueltos
+                        if (t.estatus === 'resuelto') return false; 
+                        
+                        // Filtro de Prioridad Rápida
+                        if (filtroPrioridadActivos !== 'Todas' && (t.prioridad || 'media') !== filtroPrioridadActivos) return false;
+                        
+                        // Filtros de Búsqueda Avanzada del Panel
+                        if (dashFiltroEstatus !== 'Todos_Activos' && t.estatus !== dashFiltroEstatus) return false;
+                        if (dashFiltroDepartamento !== 'Todos' && t.departamento !== dashFiltroDepartamento) return false;
+                        
+                        if (dashFiltroFechaInicio && t.fecha_creacion.substring(0, 10) < dashFiltroFechaInicio) return false;
+                        if (dashFiltroFechaFin && t.fecha_creacion.substring(0, 10) > dashFiltroFechaFin) return false;
+
+                        if (textoBuscado) {
+                            const matchFolio = t.id.toString().includes(textoBuscado);
+                            const matchTitulo = normalizarTexto(t.titulo).includes(textoBuscado);
+                            const matchUbicacion = normalizarTexto(t.ubicacion).includes(textoBuscado);
+                            if (!matchFolio && !matchTitulo && !matchUbicacion) return false;
+                        }
+
+                        return true;
+                    });
 
                     return (
                         <div className="mt-8 mb-8 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                            <div className="p-4 md:p-5 border-b border-gray-100 bg-gray-50 flex flex-col md:flex-row justify-between items-center gap-4">
-                                <h3 className="text-lg font-bold text-blue-900 whitespace-nowrap">
-                                  Reportes Activos (Vista Rápida)
-                                </h3>
-                                
-                                <div className="flex flex-wrap justify-center bg-white border border-gray-200 rounded-lg p-1 shadow-sm gap-1">
-                                    <button onClick={() => setFiltroPrioridadActivos('Todas')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${filtroPrioridadActivos === 'Todas' ? 'bg-gray-100 text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Todas</button>
-                                    <button onClick={() => setFiltroPrioridadActivos('alta')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'alta' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>🔴 Alta</button>
-                                    <button onClick={() => setFiltroPrioridadActivos('media')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'media' ? 'bg-yellow-50 text-yellow-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>🟡 Media</button>
-                                    <button onClick={() => setFiltroPrioridadActivos('baja')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'baja' ? 'bg-green-50 text-green-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>🟢 Baja</button>
+                            {/* CABECERA Y FILTROS DEL DASHBOARD */}
+                            <div className="p-4 md:p-5 border-b border-gray-100 bg-gray-50 flex flex-col gap-4">
+                                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                                  <h3 className="text-lg font-bold text-blue-900 whitespace-nowrap">
+                                    Reportes Activos
+                                  </h3>
+                                  
+                                  <div className="flex flex-wrap justify-center bg-white border border-gray-200 rounded-lg p-1 shadow-sm gap-1">
+                                      <button onClick={() => setFiltroPrioridadActivos('Todas')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition ${filtroPrioridadActivos === 'Todas' ? 'bg-gray-100 text-gray-800 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>Todas</button>
+                                      <button onClick={() => setFiltroPrioridadActivos('alta')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'alta' ? 'bg-red-50 text-red-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>🔴 Alta</button>
+                                      <button onClick={() => setFiltroPrioridadActivos('media')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'media' ? 'bg-yellow-50 text-yellow-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>🟡 Media</button>
+                                      <button onClick={() => setFiltroPrioridadActivos('baja')} className={`px-3 py-1.5 text-xs font-bold rounded-md transition flex items-center gap-1 ${filtroPrioridadActivos === 'baja' ? 'bg-green-50 text-green-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}>🟢 Baja</button>
+                                  </div>
+
+                                  <div className="flex items-center gap-3">
+                                    <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
+                                        {ticketsActivosFiltrados.length} Pendientes
+                                    </span>
+                                    <button onClick={limpiarFiltrosDashboard} className="text-xs text-gray-500 hover:text-blue-600 underline">
+                                      Limpiar
+                                    </button>
+                                  </div>
                                 </div>
 
-                                <span className="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
-                                    {ticketsActivosFiltrados.length} Pendientes
-                                </span>
+                                {/* BARRAS DE BÚSQUEDA DEL DASHBOARD */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mt-2">
+                                  <div className="lg:col-span-1">
+                                    <input type="text" placeholder="Buscar folio o texto..." className="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" value={dashFiltroTexto} onChange={(e) => setDashFiltroTexto(e.target.value)} />
+                                  </div>
+                                  <div>
+                                    <select className="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" value={dashFiltroEstatus} onChange={(e) => setDashFiltroEstatus(e.target.value)}>
+                                      {/* OJO: Aquí se quitó intencionalmente el estatus 'resuelto' */}
+                                      <option value="Todos_Activos">Todos los activos</option>
+                                      <option value="abierto">Abiertos</option>
+                                      <option value="en_proceso">En Proceso</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <select className="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" value={dashFiltroDepartamento} onChange={(e) => setDashFiltroDepartamento(e.target.value)}>
+                                      {departamentosUnicos.map((dep) => (<option key={`dash-dep-${dep}`} value={dep}>{dep}</option>))}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <input type="date" title="Fecha Desde" className="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" value={dashFiltroFechaInicio} onChange={(e) => setDashFiltroFechaInicio(e.target.value)} />
+                                  </div>
+                                  <div>
+                                    <input type="date" title="Fecha Hasta" className="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" value={dashFiltroFechaFin} onChange={(e) => setDashFiltroFechaFin(e.target.value)} />
+                                  </div>
+                                </div>
                             </div>
 
                             <div className="overflow-x-auto max-h-[400px]">
@@ -631,14 +725,13 @@ function App() {
                                     </tbody>
                                 </table>
                                 {ticketsActivosFiltrados.length === 0 && (
-                                    <div className="p-8 text-center text-gray-500 font-medium">No hay reportes con esta prioridad. 🎉</div>
+                                    <div className="p-8 text-center text-gray-500 font-medium">No hay reportes activos que coincidan con estos filtros. 🎉</div>
                                 )}
                             </div>
                         </div>
                     );
                 })()}
 
-                {/* --- GRÁFICAS --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full min-w-0">
                     <h3 className="text-lg font-bold text-blue-900 mb-4 text-center">Reportes por Departamento</h3>
@@ -672,7 +765,6 @@ function App() {
           ) : <Navigate to="/admin" />
         } />
 
-        {/* --- HISTORIAL (CON TABLA TIPO EXCEL ACTUALIZADA) --- */}
         <Route path="/admin/historial" element={
           usuario ? (
             <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
@@ -680,14 +772,32 @@ function App() {
               <div className="max-w-6xl mx-auto animate-fade-in-up">
                 
                 <div className="bg-white p-6 rounded-2xl shadow-sm mb-8 border border-gray-100">
-                  <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                    </svg>
-                    Centro de Reportes y Búsqueda
-                  </h3>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold text-blue-900 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                      </svg>
+                      Centro de Búsqueda y Filtros
+                    </h3>
+                    <button 
+                      onClick={limpiarFiltrosHistorial} 
+                      className="text-sm text-gray-500 hover:text-blue-600 font-semibold underline decoration-transparent hover:decoration-blue-600 transition"
+                    >
+                      Limpiar Filtros
+                    </button>
+                  </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                    <div className="lg:col-span-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Buscar (Folio o Texto)</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ej. 124 o 'luces'" 
+                        className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" 
+                        value={filtroTexto} 
+                        onChange={(e) => handleFiltroChange(setFiltroTexto, e.target.value)} 
+                      />
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Estatus</label>
                       <select className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" value={filtroEstatus} onChange={(e) => handleFiltroChange(setFiltroEstatus, e.target.value)}>
@@ -697,7 +807,7 @@ function App() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
                       <select className="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500" value={filtroDepartamento} onChange={(e) => handleFiltroChange(setFiltroDepartamento, e.target.value)}>
-                        {departamentosUnicos.map((dep) => (<option key={dep} value={dep}>{dep}</option>))}
+                        {departamentosUnicos.map((dep) => (<option key={`hist-dep-${dep}`} value={dep}>{dep}</option>))}
                       </select>
                     </div>
                     <div>
@@ -710,7 +820,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center border-t pt-4 mt-2">
+                  <div className="flex justify-between items-center border-t border-gray-100 pt-4 mt-2">
                     <p className="text-sm text-gray-500 font-medium">Mostrando {ticketsAMostrar.length} resultados en esta página</p>
                     <button onClick={exportarAExcel} className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition flex items-center gap-2">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -719,7 +829,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* 👇 NUEVA TABLA DE HISTORIAL 👇 */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
@@ -767,7 +876,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* 👇 BOTONES DE PAGINACIÓN 👇 */}
                 {historialTotalPages > 1 && (
                   <div className="flex justify-center items-center gap-4 mt-8 pb-8">
                       <button onClick={() => setHistorialPage(p => Math.max(1, p - 1))} disabled={historialPage === 1} className={`px-5 py-2.5 rounded-xl font-bold transition-all shadow-sm ${historialPage === 1 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 hover:scale-105'}`}>&larr; Anterior</button>
@@ -799,9 +907,6 @@ function App() {
         } />
       </Routes>
 
-      {/* ========================================================================= */}
-      {/* --- MODAL GLOBAL DEL ADMINISTRADOR (Funciona para Panel y Reportes) --- */}
-      {/* ========================================================================= */}
       {ticketModalAdmin && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4" onClick={() => { setTicketModalAdmin(null); setTicketEditando(null); }}>
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative p-6 animate-scale-in" onClick={(e) => e.stopPropagation()}>

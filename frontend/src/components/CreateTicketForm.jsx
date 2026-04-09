@@ -20,28 +20,20 @@ export default function CreateTicketForm({
   const [localTitulo, setLocalTitulo] = useState(formData.titulo || '');
   const [esParaOtro, setEsParaOtro] = useState(false); 
 
-  // Sincronizar el título local si el formulario se limpia desde fuera (botón limpiar)
   useEffect(() => {
     if (formData.titulo === '' || formData.titulo === undefined) {
       setLocalTitulo('');
     }
   }, [formData.titulo]);
 
-  // =================================================================
-  // 1. VALIDACIÓN EN TIEMPO REAL 
-  // =================================================================
   const isFormValid = 
       (usuario && !esParaOtro) 
       ? (localTitulo.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '') 
       : (formData.nombre_contacto?.trim() !== '' && formData.departamento !== '' && localTitulo.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '');
 
-  // =================================================================
-  // 2. FUNCIÓN DE ENVÍO PERSONALIZADA 
-  // =================================================================
   const handleLocalSubmit = (e) => {
     e.preventDefault();
     
-    // Formatear el correo institucional si se ingresó uno
     const correoFinal = formData.email_contacto?.trim() 
         ? `${formData.email_contacto}@canaco.net` 
         : '';
@@ -49,7 +41,7 @@ export default function CreateTicketForm({
     const dataToSend = (usuario && !esParaOtro) 
       ? { 
           ...formData, 
-          titulo: localTitulo, // Enviamos el título local
+          titulo: localTitulo, 
           nombre_contacto: usuario.nombre, 
           email_contacto: usuario.email, 
           departamento: usuario.departamento || '',
@@ -57,12 +49,11 @@ export default function CreateTicketForm({
         }
       : { 
           ...formData, 
-          titulo: localTitulo, // Enviamos el título local
+          titulo: localTitulo, 
           email_contacto: correoFinal, 
           esParaOtro: true 
         };
 
-    // Llamamos a la función original que viene de App.jsx
     onSubmit(e, dataToSend); 
   };
 
@@ -87,7 +78,6 @@ export default function CreateTicketForm({
             </p>
         </div>
         
-        {/* --- SECCIÓN DE IDENTIDAD --- */}
         {usuario ? (
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 flex flex-col gap-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -105,7 +95,6 @@ export default function CreateTicketForm({
                             </p>
                         </div>
                     </div>
-                    {/* --- TOGGLE PARA MODO ASISTENCIA --- */}
                     <button 
                         type="button"
                         onClick={() => setEsParaOtro(!esParaOtro)}
@@ -117,7 +106,6 @@ export default function CreateTicketForm({
             </div>
         ) : null}
 
-        {/* --- CASO 2: INPUTS DE CONTACTO --- */}
         {(!usuario || esParaOtro) && (
             <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4 animate-fade-in-up">
                 <h3 className="text-xs font-bold text-gray-500 uppercase">
@@ -155,7 +143,6 @@ export default function CreateTicketForm({
                         </div>
                     </div>
 
-                    {/* --- SELECT DE DEPARTAMENTO (REVISADO: 12 OPCIONES) --- */}
                     <div className="md:col-span-1">
                         <label className="block text-sm font-bold text-gray-700 mb-2">Departamento *</label>
                         <select 
@@ -183,7 +170,6 @@ export default function CreateTicketForm({
             </div>
         )}
 
-        {/* --- FORMULARIO PRINCIPAL --- */}
         <form onSubmit={handleLocalSubmit} className="space-y-6">
             <div className="relative">
                 <label className="block text-sm font-bold text-gray-700 mb-2">Título del problema</label>
@@ -193,20 +179,18 @@ export default function CreateTicketForm({
                     value={localTitulo} 
                     onChange={e => {
                         const val = e.target.value;
-                        // 1. Actualizamos el estado LOCAL para que SÍ se vea lo que escribes
                         setLocalTitulo(val);
                         
-                        // 2. Avisamos al buscador (onSearch)
+                        // 👇 Aquí pasamos explícitamente la ubicación actual a la búsqueda
                         if (val.length > 1) {
-                            onSearch(val);
+                            onSearch(val, formData.ubicacion);
                         } else {
-                            onSearch(''); 
+                            onSearch('', formData.ubicacion); 
                         }
                     }} 
                     required autoComplete="off"
                 />
                 
-                {/* ALERTA DE DUPLICADOS */}
                 <AnimatePresence>
                     {sugerencias?.length > 0 && (
                     <motion.div 
@@ -243,13 +227,20 @@ export default function CreateTicketForm({
                 </AnimatePresence>
             </div>
 
-            {/* --- SELECT PARA UBICACIÓN --- */}
             <div>
                  <label className="block text-sm font-bold text-gray-700 mb-2">Ubicación exacta</label>
                  <select 
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white" 
                     value={formData.ubicacion || ''} 
-                    onChange={e => setFormData({...formData, ubicacion: e.target.value})} 
+                    onChange={e => {
+                        // 👇 NUEVA LOGICA: Al seleccionar ubicación, también disparamos la búsqueda 👇
+                        const nuevaUbicacion = e.target.value;
+                        setFormData({...formData, ubicacion: nuevaUbicacion});
+                        
+                        if (localTitulo.length > 1) {
+                            onSearch(localTitulo, nuevaUbicacion);
+                        }
+                    }} 
                     required
                 >
                     <option value="" disabled>Selecciona tu piso o área...</option>
@@ -273,7 +264,6 @@ export default function CreateTicketForm({
                 />
             </div>
 
-            {/* ZONA DE SUBIDA Y TOMA DE EVIDENCIA */}
             <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Evidencia Visual (Opcional)</label>
                 <div className="flex flex-col sm:flex-row gap-4 w-full">

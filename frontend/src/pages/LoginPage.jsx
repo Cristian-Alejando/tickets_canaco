@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { loginUser } from '../services/ticketService'; 
-import { motion } from 'framer-motion'; // <-- NUEVO: Animación
-import { toast } from 'react-hot-toast'; // <-- NUEVO: Notificaciones
+import { motion } from 'framer-motion'; 
+import { toast } from 'react-hot-toast'; 
 
 export default function LoginPage({ onLoginSuccess }) {
   const [formData, setFormData] = useState({ 
@@ -17,9 +17,8 @@ export default function LoginPage({ onLoginSuccess }) {
     try {
         const res = await loginUser({ email: formData.email, password: formData.password });
         if (res.error) {
-            toast.error(res.error); // <-- Reemplazamos el texto rojo estático por un Toast elegante
+            toast.error(res.error); 
         } else {
-            // Al ser exitoso, App.jsx se encarga de redirigir al Dashboard
             onLoginSuccess(res);
         }
     } catch (error) { 
@@ -63,7 +62,8 @@ export default function LoginPage({ onLoginSuccess }) {
                 <input 
                     type="email" 
                     required 
-                    placeholder="admin@canaco.com"
+                    // 👇 CORRECCIÓN: Placeholder genérico y seguro 👇
+                    placeholder="usuario@canaco.net"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
                     value={formData.email} 
                     onChange={e => setFormData({...formData, email: e.target.value})} 
@@ -74,6 +74,7 @@ export default function LoginPage({ onLoginSuccess }) {
                 <input 
                     type="password" 
                     required 
+                    // 👇 CORRECCIÓN: Placeholder genérico 👇
                     placeholder="••••••••"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
                     value={formData.password} 
