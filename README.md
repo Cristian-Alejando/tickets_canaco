@@ -1,12 +1,13 @@
 # 🎫 Tickets CANACO - Sistema de Mesa de Ayuda Interna
-> Para desarrollo colaborativo en vivo o acceso remoto, se utiliza **ngrok** apuntando al puerto del frontend (5173).
+> Para desarrollo colaborativo en vivo o acceso remoto, se utiliza **ngrok**. Para el entorno oficial de producción, se utiliza **Cloudflare Tunnels** apuntando al dominio `mantenimiento.canaco.net`.
 
 ## 📋 Tabla de Contenidos
 
-> **Destacado:** El sistema está construido como una **Progressive Web App (PWA)**, lo que permite a los colaboradores instalarlo directamente en sus celulares. En sus últimas actualizaciones, se implementó una arquitectura en **Tiempo Real (WebSockets)**, compresión de **Evidencias Visuales (WebP)** y una barrera de **Seguridad Empresarial (Fase Búnker)** para proteger la integridad de los datos de CANACO.
+> **Destacado:** El sistema está construido como una **Progressive Web App (PWA)**, lo que permite a los colaboradores instalarlo directamente en sus celulares. En sus últimas actualizaciones, se implementó una arquitectura en **Tiempo Real (WebSockets)**, compresión de **Evidencias Visuales (WebP)**, gestión de procesos con **PM2** y una barrera de **Seguridad Empresarial (Fase Búnker)** para proteger la integridad de los datos de CANACO.
 
 - [Descripción General](#-descripción-general)
 - [Arquitectura del Sistema](#-arquitectura-del-sistema)
+- [Estrategia de Despliegue (Producción)](#-estrategia-de-despliegue-producción)
 - [Características Principales](#-características-principales)
 - [Seguridad y Protección (Fase Búnker)](#-seguridad-y-protección-fase-búnker)
 - [Requisitos del Sistema](#-requisitos-del-sistema)
@@ -15,7 +16,7 @@
 - [Esquema de Base de Datos](#-esquema-de-base-de-datos)
 - [API Endpoints](#-api-endpoints)
 - [Frontend y PWA](#-frontend-y-pwa)
-- [Flujo de Trabajo Operativo](#-flujo-de-trabajo-operativo)
+- [Flujo de Trabajo Operativo](#-flujo- de-trabajo-operativo)
 - [Mantenimiento y Control de Versiones](#-mantenimiento-y-control-de-versiones)
 - [Soporte y Contacto](#-soporte-y-contacto)
 
@@ -49,9 +50,9 @@ La aplicación utiliza una arquitectura moderna basada en el stack PERN (Postgre
 │  (React + Vite) │WSS │   (API + WSS)   │    │   (pg Pool)     │
 │                 │    │                 │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-        ▲                        ▲                      ▲
-        │                        │                      │
-        ▼                        ▼                      ▼
+        ▲                         ▲                       ▲
+        │                         │                       │
+        ▼                         ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │  PWA Workbox,   │    │ Multer & Sharp  │    │ Middlewares JWT,│
 │  Tailwind CSS & │    │ Nodemailer SMTP │    │ Helmet & RateLim│
@@ -67,6 +68,27 @@ La aplicación utiliza una arquitectura moderna basada en el stack PERN (Postgre
 - **Notificaciones**: `nodemailer` (SMTP con plantillas corporativas HTML).
 - **Manejo de Archivos**: `multer` (Buffer en RAM) + `sharp` (Conversión a WebP y redimensionamiento).
 - **PWA**: `vite-plugin-pwa` (Caché offline y Service Workers).
+- **Infraestructura de Producción**: **PM2** (Gestor de procesos), **Cloudflare Tunnels** (Acceso seguro), **Serve** (Servidor estático).
+
+---
+
+## 🚀 Estrategia de Despliegue (Producción)
+
+Para el despliegue final en la laptop servidor de la oficina, se implementó una arquitectura de **Alta Disponibilidad** y **Modo Silencioso**:
+
+### 1. Gestión de Procesos (PM2)
+Se utiliza **PM2** para asegurar la persistencia del sistema. Los procesos se ejecutan en segundo plano y se reinician automáticamente ante fallos o reinicios de la laptop:
+- **`api-canaco`**: Gestiona el backend y la conexión a la base de datos.
+- **`web-canaco`**: Gestiona el frontend mediante el servidor de archivos estáticos.
+
+### 2. Servidor de Producción (Build)
+El frontend ya no utiliza el servidor de desarrollo pesado. Se genera una carpeta `/dist` mediante `npm run build` y se sirve con la herramienta **Serve**, optimizando la velocidad de carga y reduciendo el consumo de RAM.
+
+### 3. Modo Invisible en Windows
+Se implementó un wrapper personalizado (`start-serve.js`) que utiliza la propiedad `windowsHide: true`. Esto permite que el servidor de producción funcione sin dejar ventanas de terminal abiertas en el escritorio del equipo servidor.
+
+### 4. Túneles y DNS
+- **Cloudflare Tunnels**: Reemplaza el uso de ngrok en producción, proporcionando una conexión SSL permanente mapeada a los subdominios `mantenimiento.canaco.net` y `api-mantenimiento.canaco.net`.
 
 ---
 
@@ -93,10 +115,10 @@ La aplicación utiliza una arquitectura moderna basada en el stack PERN (Postgre
 
 El sistema ha sido fortificado con estándares de seguridad a nivel empresarial para proteger los endpoints expuestos y los datos internos de CANACO:
 
-1. **Rate Limiting Anti-Spam**: Implementación de `express-rate-limit` configurado para tolerar proxies inversos (Ngrok). Limita el tráfico a 150 peticiones por IP cada 15 minutos, previniendo ataques de denegación de servicio (DDoS), scripts de fuerza bruta y spam masivo de tickets.
+1. **Rate Limiting Anti-Spam**: Implementación de `express-rate-limit` configurado para tolerar proxies inversos (Ngrok/Cloudflare). Limita el tráfico a 150 peticiones por IP cada 15 minutos, previniendo ataques de denegación de servicio (DDoS), scripts de fuerza bruta y spam masivo de tickets.
 2. **Esterilización Anti-Veneno (XSS)**: Uso de `dompurify` junto con `jsdom` en el backend para limpiar y esterilizar todos los inputs del usuario (títulos, descripciones, comentarios). Esto neutraliza permanentemente cualquier inyección de código malicioso (`<script>`) antes de que toque la base de datos.
 3. **Autenticación Estricta (JWT)**: Todos los endpoints administrativos están protegidos por validación de JSON Web Tokens. El frontend extrae y anexa el token criptográfico en los headers (`Authorization: Bearer`), impidiendo modificaciones directas mediante herramientas externas como Postman.
-4. **Cabeceras Seguras**: Implementación de `helmet.js` para ocultar la firma del servidor Node.js y proteger contra vulnerabilidades comunes como Clickjacking y Sniffing de MIME types, adaptado para permitir la carga correcta de imágenes cross-origin.
+4. **Cabeceras Seguras**: Implementación de `helmet.js` para ocultar la firma del servidor Node.js y proteger contra vulnerabilidades comunes como Clickjacking y Sniffing de MIME types.
 
 ---
 
@@ -104,7 +126,7 @@ El sistema ha sido fortificado con estándares de seguridad a nivel empresarial 
 
 ### 1. Clonar el Repositorio
 ```bash
-git clone [https://github.com/tu-usuario/tickets_canaco.git](https://github.com/tu-usuario/tickets_canaco.git)
+git clone [[https://github.com/tu-usuario/tickets_canaco.git](https://github.com/tu-usuario/tickets_canaco.git)]
 cd tickets_canaco
 ```
 
@@ -132,25 +154,30 @@ JWT_SECRET=tu_secreto_super_seguro_y_largo
 EMAIL_USER=helpdesk.canacomty@gmail.com
 EMAIL_PASS=tu_app_password_de_google
 ```
-Inicia el servidor en modo desarrollo:
-```bash
-npm run dev
-```
 
-### 4. Configurar Frontend
-Abre una nueva terminal independiente:
+### 4. Configurar Frontend y Producción
 ```bash
 cd frontend
 npm install
-npm run dev
+# Generar empaquetado optimizado
+npm run build
 ```
 
-### 5. Acceso Remoto desde Redes Externas (ngrok)
-Para permitir que usuarios o técnicos accedan a la aplicación desde redes móviles, o para probar funcionalidades nativas como la cámara del celular, abre una **tercera terminal** y ejecuta:
+### 5. Puesta en Marcha con PM2 (Modo Servidor)
+Para iniciar el sistema de forma persistente e invisible en el servidor:
 ```bash
-ngrok http 5173
+# Iniciar Backend
+cd backend
+pm2 start server.js --name "api-canaco"
+
+# Iniciar Frontend (Usando el script de invisibilidad)
+cd frontend
+pm2 start start-serve.js --name "web-canaco"
+
+# Configurar inicio automático con Windows
+pm2-startup install
+pm2 save
 ```
-*(El enlace `https://...` generado por Ngrok será la URL de producción temporal. Ngrok gestionará correctamente los túneles WSS de Socket.io).*
 
 ---
 
@@ -159,24 +186,26 @@ ngrok http 5173
 ```text
 TICKETS_CANACO/
 ├── backend/                    
-│   ├── config/                 # Conexión persistente de DB y configuración de Nodemailer SMTP
+│   ├── config/                 # Conexión persistente de DB y configuración de SMTP
 │   ├── controllers/            # Lógica de negocio (authController, ticketController)
 │   ├── middlewares/            # 🛡️ authMiddleware (Verificación JWT, Control de Roles)
 │   ├── routes/                 # Enrutadores Express (API Endpoints)
-│   ├── uploads/                # 📸 Almacenamiento local de evidencias (Formato WebP)
+│   ├── uploads/                # 📸 Almacenamiento local de evidencias (WebP)
 │   ├── .env                    # Variables de entorno (Ignorado en Git)
-│   └── server.js               # Entrypoint Principal (Express + Socket.io Server + Helmet)
+│   └── server.js               # Entrypoint Principal (Express + Socket.io Server)
 │
 ├── frontend/                   
-│   ├── public/                 # Iconografía, logos y archivo manifest.webmanifest (PWA)
+│   ├── dist/                   # 📦 Archivos compilados para producción (Generado tras build)
+│   ├── public/                 # Iconografía y archivo manifest.webmanifest (PWA)
 │   ├── src/
-│   │   ├── components/         # Componentes reutilizables (Forms, TicketCard, Charts, Modals)
-│   │   ├── pages/              # Vistas principales (Tablero, Dashboard Admin, Login)
-│   │   ├── services/           # Peticiones Fetch centralizadas (Inyección automática de JWT)
-│   │   └── config.js           # Variables globales (API_URL)
-│   └── vite.config.js          # Configuración del empaquetador y plugins de Workbox
+│   │   ├── components/         # Componentes React (Forms, TicketCard, Charts)
+│   │   ├── pages/              # Vistas principales (Tablero, Dashboard)
+│   │   ├── services/           # Peticiones Fetch con inyección de JWT
+│   │   └── config.js           # Variables globales (API_URL hacia canaco.net)
+│   ├── start-serve.js          # 👻 Wrapper para ejecución invisible con PM2
+│   └── vite.config.js          # Configuración del empaquetador y PWA
 │
-└── .gitignore                  # Reglas de exclusión para evitar subir dependencias y binarios
+└── .gitignore                  # Reglas de exclusión para dependencias y binarios
 ```
 
 ---
@@ -303,7 +332,12 @@ frontend/dist/
 frontend/dev-dist/
 backend/uploads/
 ```
-*Nota de Seguridad: Las imágenes subidas en `/uploads` contienen información operativa interna y NO deben sincronizarse ni subirse al repositorio público.*
+
+### Comandos de Control en el Servidor
+- **Ver estado:** `pm2 status`
+- **Ver actividad:** `pm2 logs`
+- **Reiniciar servicios:** `pm2 restart all`
+- **Guardar configuración:** `pm2 save`
 
 ---
 

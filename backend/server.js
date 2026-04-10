@@ -9,22 +9,20 @@ const pool = require('./config/db');
 // 👇 IMPORTAMOS LOS GUARDAESPALDAS DE SEGURIDAD 👇
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-// XSS-CLEAN ELIMINADO
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Le decimos a Express que confíe en el primer proxy (Ngrok)
-// Así el Rate-Limit leerá la IP real de la persona y no la de Ngrok
+// Le decimos a Express que confíe en el primer proxy
 app.set('trust proxy', 1); 
 
 // Creamos el servidor HTTP envolviendo nuestra app de Express 
 const server = http.createServer(app);
 
-// Configuramos Socket.io con las mismas reglas de CORS que tu Express 
+// Configuramos Socket.io con las mismas reglas de CORS 
 const io = new Server(server, {
   cors: {
-    origin: '*', // Permite que cualquier IP de tu red local se conecte
+    origin: '*', 
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
   }
@@ -44,16 +42,16 @@ io.on('connection', (socket) => {
 
 // --- 1. MIDDLEWARES ---
 
-// Activamos Helmet (Oculta información sensible del servidor)
+// Activamos Helmet 
 app.use(helmet({
   crossOriginResourcePolicy: false,
-  contentSecurityPolicy: false, // Lo apagamos para no bloquear tu frontend de React ni Ngrok
+  contentSecurityPolicy: false, 
 }));
 
 // Activamos Rate Limiting (Antispam)
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // Ventana de 15 minutos
-  max: 150, // Límite de 150 peticiones por IP en esa ventana de tiempo
+  windowMs: 15 * 60 * 1000, 
+  max: 150, 
   message: { error: 'Demasiadas peticiones desde esta IP. Relájate y vuelve a intentar en 15 minutos. 🛑' },
   standardHeaders: true, 
   legacyHeaders: false, 
@@ -61,17 +59,17 @@ const limiter = rateLimit({
 
 // CONFIGURACIÓN CORS CRÍTICA PARA RED LOCAL (LAN)
 app.use(cors({
-  origin: '*', // Permite que cualquier IP de tu red local se conecte
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // OPTIONS es vital para las peticiones pre-flight del navegador
-  allowedHeaders: ['Content-Type', 'Authorization'] // Permite enviar JSON y tokens
+  origin: '*', 
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], 
+  allowedHeaders: ['Content-Type', 'Authorization'] 
 }));
 
 // Le decimos a Express que entienda el formato JSON
 app.use(express.json());
 
-// Aplicamos el antispam SOLO a las rutas de la API, no a las fotos ni al frontend
-app.use('/tickets', limiter);
-app.use('/auth', limiter);
+// 👇 CORRECCIÓN: Aplicamos el antispam a las rutas con el prefijo /api
+app.use('/api/tickets', limiter);
+app.use('/api/auth', limiter);
 
 // Hacer pública la carpeta de evidencias 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -80,11 +78,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const authRoutes = require('./routes/authRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 
-// Definimos las rutas de la API explícitamente
-app.use('/auth', authRoutes); 
-app.use('/tickets', ticketRoutes); 
+// 👇 CORRECCIÓN: Definimos las rutas de la API explícitamente con /api
+app.use('/api/auth', authRoutes); 
+app.use('/api/tickets', ticketRoutes); 
 
-app.get('/test-db', async (req, res) => {
+app.get('/api/test-db', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
     res.json({ mensaje: 'Conexión exitosa', hora: result.rows[0].now });
@@ -95,17 +93,15 @@ app.get('/test-db', async (req, res) => {
 });
 
 // --- 3. INTEGRACIÓN FRONTEND (ESTÁTICOS) ---
-// Solo servir estáticos si no entró a ninguna ruta de la API arriba
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-// --- 4. RUTA COMODÍN (SOLUCIÓN INFALIBLE PARA EXPRESS 5) ---
-// Agregamos |\/uploads para que React no bloquee las imágenes 
-app.get(/^(?!\/auth|\/tickets|\/uploads).*$/, (req, res) => {
+// --- 4. RUTA COMODÍN (SOLUCIÓN INFALIBLE) ---
+// 👇 CORRECCIÓN: Le decimos a React que ignore cualquier cosa que empiece con /api o /uploads
+app.get(/^(?!\/api|\/uploads).*$/, (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
 // --- 5. INICIAR SERVIDOR ---
-// ¡IMPORTANTE! Ahora encendemos el 'server' (que trae HTTP + WebSockets), no el 'app' viejo 
 server.listen(port, '0.0.0.0', () => {
   console.log(`🚀 Servidor Backend + WebSockets en puerto: ${port}`);
   console.log(`🌐 Accesible en tu red local (LAN) a través de la IP de esta máquina`);

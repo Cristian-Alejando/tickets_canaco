@@ -1,19 +1,14 @@
 import { API_URL } from '../config';
 
-const ngrokHeaders = {
-  'ngrok-skip-browser-warning': 'true'
-};
-
 // 👇 Función para sacar el gafete VIP de la memoria del navegador 👇
 const getAuthHeaders = () => {
     const token = localStorage.getItem('token_admin_canaco');
     if (token) {
         return { 
-            ...ngrokHeaders, 
             'Authorization': `Bearer ${token}` 
         };
     }
-    return ngrokHeaders;
+    return {}; // Retorna un objeto vacío si no hay token
 };
 
 // ==========================================
@@ -24,8 +19,7 @@ export const loginUser = async (credentials) => {
     const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 
-        'Content-Type': 'application/json',
-        ...ngrokHeaders
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(credentials),
     });
@@ -51,8 +45,7 @@ export const registerUser = async (userData) => {
     const response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: { 
-        'Content-Type': 'application/json',
-        ...ngrokHeaders // El registro no ocupa token
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(userData),
     });
@@ -113,9 +106,7 @@ export const getTickets = async (page = null, limit = null, filters = {}) => {
       url += `?${queryString}`;
     }
 
-    const response = await fetch(url, {
-      headers: { ...ngrokHeaders } // Público, no necesita token
-    });
+    const response = await fetch(url); // Público, no necesita token ni headers extra
     
     return await response.json();
   } catch (error) {
@@ -135,8 +126,7 @@ export const createTicket = async (ticketData) => {
 
     const response = await fetch(`${API_URL}/tickets`, {
       method: 'POST',
-      headers: { ...ngrokHeaders }, // Público, cualquiera puede crear
-      body: formData, 
+      body: formData, // Público, no necesita headers extra
     });
     
     const data = await response.json();
@@ -169,8 +159,7 @@ export const voteTicket = async (ticketId, userId) => {
     const response = await fetch(`${API_URL}/tickets/${ticketId}/vote`, {
       method: 'POST',
       headers: { 
-        'Content-Type': 'application/json',
-        ...ngrokHeaders // Público
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({ usuario_id: userId }),
     });
@@ -183,9 +172,7 @@ export const voteTicket = async (ticketId, userId) => {
 
 export const getMyVotes = async (userId) => {
   try {
-    const response = await fetch(`${API_URL}/tickets/mis-votos/${userId}`, {
-      headers: { ...ngrokHeaders } // Público
-    });
+    const response = await fetch(`${API_URL}/tickets/mis-votos/${userId}`); // Público
     return await response.json();
   } catch (error) {
     console.error("Error getting votes:", error);
@@ -226,9 +213,7 @@ export const getTicketBitacora = async (id) => {
 export const searchTickets = async (query, ubicacion) => {
   try {
     // Inyectamos la palabra y el piso en la URL para que el backend lo atrape
-    const response = await fetch(`${API_URL}/tickets/buscar?q=${query}&ubicacion=${ubicacion}`, {
-      headers: { ...ngrokHeaders }
-    });
+    const response = await fetch(`${API_URL}/tickets/buscar?q=${query}&ubicacion=${ubicacion}`);
     return await response.json();
   } catch (error) {
     console.error("Error buscando tickets sugeridos:", error);

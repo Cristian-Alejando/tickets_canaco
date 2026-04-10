@@ -31,6 +31,20 @@ export default function LoginPage({ onLoginSuccess }) {
 
   return (
     <div className="flex min-h-screen bg-gray-50 flex-col font-sans w-full relative overflow-hidden">
+      
+      {/* 👇 NUEVO: Botón Flotante para regresar al Buzón Público 👇 */}
+      <div className="absolute top-4 left-4 md:top-6 md:left-6 z-20">
+        <a 
+          href="/" 
+          className="flex items-center gap-2 text-blue-200 hover:text-white transition duration-300 font-medium text-sm bg-blue-900/40 p-2 pr-4 rounded-full backdrop-blur-sm border border-blue-800/50 hover:bg-blue-800/80 shadow-sm"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+          </svg>
+          Volver al Buzón
+        </a>
+      </div>
+
       {/* Encabezado Azul */}
       <div className="bg-blue-900 h-64 w-full flex items-center justify-center rounded-b-[50px] shadow-lg absolute top-0 left-0 z-0">
         <div className="text-center pb-10">
@@ -62,7 +76,6 @@ export default function LoginPage({ onLoginSuccess }) {
                 <input 
                     type="email" 
                     required 
-                    // 👇 CORRECCIÓN: Placeholder genérico y seguro 👇
                     placeholder="usuario@canaco.net"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
                     value={formData.email} 
@@ -74,7 +87,6 @@ export default function LoginPage({ onLoginSuccess }) {
                 <input 
                     type="password" 
                     required 
-                    // 👇 CORRECCIÓN: Placeholder genérico 👇
                     placeholder="••••••••"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition" 
                     value={formData.password} 

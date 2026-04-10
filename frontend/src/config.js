@@ -1,1 +1,1 @@
-export const API_URL = 'https://api-mantenimiento.canaco.net/api';
+export const API_URL = 'http://localhost:3000/api';
