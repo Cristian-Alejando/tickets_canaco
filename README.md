@@ -1,9 +1,9 @@
 # 🎫 Tickets CANACO - Sistema de Mesa de Ayuda Interna
-> Para desarrollo colaborativo en vivo o acceso remoto, se utiliza **ngrok**. Para el entorno oficial de producción, se utiliza **Cloudflare Tunnels** apuntando al dominio `mantenimiento.canaco.net`.
+> Para el entorno oficial de producción y acceso remoto, se utiliza exclusivamente **Cloudflare Tunnels (Zero Trust)** apuntando al dominio `mantenimiento.canaco.net`. Queda **estrictamente deprecado el uso de ngrok** por políticas de seguridad corporativa y de infraestructura.
 
 ## 📋 Tabla de Contenidos
 
-> **Destacado:** El sistema está construido como una **Progressive Web App (PWA)**, lo que permite a los colaboradores instalarlo directamente en sus celulares. En sus últimas actualizaciones, se implementó una arquitectura en **Tiempo Real (WebSockets)**, compresión de **Evidencias Visuales (WebP)**, gestión de procesos con **PM2** y una barrera de **Seguridad Empresarial (Fase Búnker)** para proteger la integridad de los datos de CANACO.
+> **Destacado:** El sistema está construido como una **Progressive Web App (PWA)**, lo que permite a los colaboradores instalarlo directamente en sus celulares. En sus últimas actualizaciones, se implementó una arquitectura en **Tiempo Real (WebSockets)**, compresión de **Evidencias Visuales (WebP)**, gestión heurística de **Duplicados (HTTP 409)**, gestión de procesos con **PM2** y una barrera de **Seguridad Empresarial (Fase Búnker)** para proteger la integridad de los datos de CANACO.
 
 - [Descripción General](#-descripción-general)
 - [Arquitectura del Sistema](#-arquitectura-del-sistema)
@@ -16,7 +16,7 @@
 - [Esquema de Base de Datos](#-esquema-de-base-de-datos)
 - [API Endpoints](#-api-endpoints)
 - [Frontend y PWA](#-frontend-y-pwa)
-- [Flujo de Trabajo Operativo](#-flujo- de-trabajo-operativo)
+- [Flujo de Trabajo Operativo](#-flujo-de-trabajo-operativo)
 - [Mantenimiento y Control de Versiones](#-mantenimiento-y-control-de-versiones)
 - [Soporte y Contacto](#-soporte-y-contacto)
 
@@ -28,7 +28,7 @@
 
 ### Propósito y Objetivos
 - **Centralización:** Unificar todos los reportes de fallas (Sistemas, Mantenimiento, Capital Humano, etc.) en un solo panel de control accesible desde cualquier dispositivo.
-- **Reducción de Ruido:** Evitar la saturación de correos y mensajes duplicados agrupando problemas similares mediante un sistema inteligente de "votos" o "afectaciones".
+- **Reducción de Ruido:** Evitar la saturación de correos y mensajes duplicados agrupando problemas similares mediante un sistema inteligente de "votos" o "afectaciones" y validación backend de falsos positivos.
 - **Comunicación Activa:** Mantener a los usuarios informados en tiempo real mediante actualizaciones dinámicas en pantalla (WebSockets) y notificaciones por correo electrónico transaccional.
 - **Auditoría y Transparencia:** Proveer un panel administrativo robusto que permite controlar tiempos de respuesta, responsables, estatus, e incluye un registro inmutable (bitácora) de cada movimiento.
 
@@ -68,7 +68,7 @@ La aplicación utiliza una arquitectura moderna basada en el stack PERN (Postgre
 - **Notificaciones**: `nodemailer` (SMTP con plantillas corporativas HTML).
 - **Manejo de Archivos**: `multer` (Buffer en RAM) + `sharp` (Conversión a WebP y redimensionamiento).
 - **PWA**: `vite-plugin-pwa` (Caché offline y Service Workers).
-- **Infraestructura de Producción**: **PM2** (Gestor de procesos), **Cloudflare Tunnels** (Acceso seguro), **Serve** (Servidor estático).
+- **Infraestructura de Producción**: **PM2** (Gestor de procesos), **Cloudflare Tunnels / Connectors** (Acceso seguro y DNS), **Serve** (Servidor estático).
 
 ---
 
@@ -78,17 +78,20 @@ Para el despliegue final en la laptop servidor de la oficina, se implementó una
 
 ### 1. Gestión de Procesos (PM2)
 Se utiliza **PM2** para asegurar la persistencia del sistema. Los procesos se ejecutan en segundo plano y se reinician automáticamente ante fallos o reinicios de la laptop:
-- **`api-canaco`**: Gestiona el backend y la conexión a la base de datos.
-- **`web-canaco`**: Gestiona el frontend mediante el servidor de archivos estáticos.
+- **`api-canaco`**: Gestiona el backend y la conexión a la base de datos (puerto local 3000).
+- **`web-canaco`**: Gestiona el frontend mediante el servidor de archivos estáticos (puerto local 5173).
 
 ### 2. Servidor de Producción (Build)
-El frontend ya no utiliza el servidor de desarrollo pesado. Se genera una carpeta `/dist` mediante `npm run build` y se sirve con la herramienta **Serve**, optimizando la velocidad de carga y reduciendo el consumo de RAM.
+El frontend ya no utiliza el servidor de desarrollo pesado. Se genera una carpeta `/dist` mediante el comando de empaquetado `npm run build` y se sirve con la herramienta **Serve**, optimizando la velocidad de carga y reduciendo el consumo de RAM.
 
 ### 3. Modo Invisible en Windows
 Se implementó un wrapper personalizado (`start-serve.js`) que utiliza la propiedad `windowsHide: true`. Esto permite que el servidor de producción funcione sin dejar ventanas de terminal abiertas en el escritorio del equipo servidor.
 
-### 4. Túneles y DNS
-- **Cloudflare Tunnels**: Reemplaza el uso de ngrok en producción, proporcionando una conexión SSL permanente mapeada a los subdominios `mantenimiento.canaco.net` y `api-mantenimiento.canaco.net`.
+### 4. Túneles y DNS (Cloudflare Zero Trust)
+- **Cloudflare Tunnels**: Proporciona una conexión SSL permanente y encriptada sin abrir puertos en el firewall local.
+- Mapeos configurados: 
+  - `mantenimiento.canaco.net` → `http://localhost:5173`
+  - `api-mantenimiento.canaco.net` → `http://localhost:3000`
 
 ---
 
@@ -100,8 +103,9 @@ Se implementó un wrapper personalizado (`start-serve.js`) que utiliza la propie
 - **Evidencia Visual Optimizada**: Integración directa con la cámara del dispositivo móvil. Las fotos subidas son interceptadas en la memoria RAM del servidor y convertidas al formato de nueva generación `WebP` mediante la librería `Sharp`, reduciendo drásticamente el peso del archivo sin perder calidad.
 - **Gestión Masiva de Datos**: Implementación de paginación real procesada desde el motor de SQL (`LIMIT` y `OFFSET`) para manejar miles de registros sin degradar el rendimiento, junto con exportación de datos filtrados a Excel (`.xlsx`).
 
-### 🧠 Inteligencia y Trazabilidad
-- **Búsqueda Predictiva Anti-Duplicados**: Un algoritmo sugiere tickets similares en tiempo real mientras el usuario teclea su reporte.
+### 🧠 Inteligencia y Trazabilidad (Motor Anti-Duplicados)
+- **Búsqueda Predictiva**: Un algoritmo sugiere tickets similares en tiempo real mientras el usuario teclea su reporte.
+- **Validación Heurística de Backend (HTTP 409)**: Si un colaborador ignora las sugerencias e intenta enviar un ticket estructuralmente similar en la misma ubicación, el servidor rechaza la transacción (`409 Conflict`). El UI procesa el error y lanza un modal de decisión (Forzar creación vs. Sumarse al existente).
 - **Sistema de Votación ("Yo también")**: Permite a otros colaboradores sumarse a una incidencia existente en lugar de generar un ticket nuevo, incrementando el contador de "afectados" y elevando la prioridad naturalmente.
 - **Bitácora de Auditoría (Audit Log)**: Registro inmutable en base de datos de cada acción (quién cambió un estatus, cuándo se modificó la prioridad, qué comentarios se agregaron), garantizando transparencia absoluta.
 
@@ -115,7 +119,7 @@ Se implementó un wrapper personalizado (`start-serve.js`) que utiliza la propie
 
 El sistema ha sido fortificado con estándares de seguridad a nivel empresarial para proteger los endpoints expuestos y los datos internos de CANACO:
 
-1. **Rate Limiting Anti-Spam**: Implementación de `express-rate-limit` configurado para tolerar proxies inversos (Ngrok/Cloudflare). Limita el tráfico a 150 peticiones por IP cada 15 minutos, previniendo ataques de denegación de servicio (DDoS), scripts de fuerza bruta y spam masivo de tickets.
+1. **Rate Limiting Anti-Spam**: Implementación de `express-rate-limit` configurado para tolerar proxies inversos (Cloudflare). Limita el tráfico a 150 peticiones por IP cada 15 minutos, previniendo ataques de denegación de servicio (DDoS), scripts de fuerza bruta y spam masivo de tickets.
 2. **Esterilización Anti-Veneno (XSS)**: Uso de `dompurify` junto con `jsdom` en el backend para limpiar y esterilizar todos los inputs del usuario (títulos, descripciones, comentarios). Esto neutraliza permanentemente cualquier inyección de código malicioso (`<script>`) antes de que toque la base de datos.
 3. **Autenticación Estricta (JWT)**: Todos los endpoints administrativos están protegidos por validación de JSON Web Tokens. El frontend extrae y anexa el token criptográfico en los headers (`Authorization: Bearer`), impidiendo modificaciones directas mediante herramientas externas como Postman.
 4. **Cabeceras Seguras**: Implementación de `helmet.js` para ocultar la firma del servidor Node.js y proteger contra vulnerabilidades comunes como Clickjacking y Sniffing de MIME types.
@@ -126,7 +130,7 @@ El sistema ha sido fortificado con estándares de seguridad a nivel empresarial 
 
 ### 1. Clonar el Repositorio
 ```bash
-git clone [[https://github.com/tu-usuario/tickets_canaco.git](https://github.com/tu-usuario/tickets_canaco.git)]
+git clone [https://github.com/tu-usuario/tickets_canaco.git](https://github.com/tu-usuario/tickets_canaco.git)
 cd tickets_canaco
 ```
 
@@ -155,11 +159,12 @@ EMAIL_USER=helpdesk.canacomty@gmail.com
 EMAIL_PASS=tu_app_password_de_google
 ```
 
-### 4. Configurar Frontend y Producción
+### 4. Configurar Frontend y Empaquetar para Producción (Build)
 ```bash
 cd frontend
 npm install
-# Generar empaquetado optimizado
+
+# ⚠️ PASO CRÍTICO: Generar empaquetado optimizado estático
 npm run build
 ```
 
@@ -171,7 +176,7 @@ cd backend
 pm2 start server.js --name "api-canaco"
 
 # Iniciar Frontend (Usando el script de invisibilidad)
-cd frontend
+cd ../frontend
 pm2 start start-serve.js --name "web-canaco"
 
 # Configurar inicio automático con Windows
@@ -275,7 +280,7 @@ CREATE TABLE votos_registro (
 | Método | Endpoint | Descripción | Nivel de Acceso |
 |--------|----------|-------------|-----------------|
 | `GET`  | `/tickets` | Obtiene lista completa (Soporta paginación SQL) | 🌐 Público |
-| `POST` | `/tickets` | Multipart FormData (Sube foto, esteriliza, emite WSS) | 🌐 Público |
+| `POST` | `/tickets` | Multipart FormData. Valida heurística de duplicados (Retorna `200 OK` o `409 Conflict`). Soporta bandera explícita `ignorarDuplicado=true` | 🌐 Público |
 | `GET`  | `/tickets/buscar?q=` | Búsqueda predictiva (Filtrado XSS) | 🌐 Público |
 | `PUT`  | `/tickets/:id` | Actualización de estatus/prioridad + Bitácora | 🔒 Admin/Técnico |
 | `POST` | `/tickets/:id/vote`| Incrementa contador de afectaciones | 🌐 Público |
@@ -286,14 +291,18 @@ CREATE TABLE votos_registro (
 
 ## 🔄 Flujo de Trabajo Operativo
 
-### 1. Detección y Reporte (Colaborador)
+### 1. Detección, Reporte y Control de Falsos Positivos
 ```mermaid
 graph TD
     A[Falla Detectada] --> B[Apertura de PWA]
     B --> C[Escritura de Título]
     C --> D{¿El sistema sugiere<br>algo similar?}
     D -->|Sí| E[Clic en '✋ Yo también']
-    D -->|No| F[Formulario Completo + Evidencia Fotográfica]
+    D -->|Ignora y Envía| L{¿Backend detecta<br>falso positivo?}
+    L -->|Sí - HTTP 409| M[Lanza Modal: ¿Es el mismo?]
+    M -->|Forzar envío| F[Se reenvía con ignorarDuplicado=true]
+    M -->|Sumarse| E
+    L -->|No - Pasa filtro| F[Formulario Completo + Evidencia Fotográfica]
     E --> G[Aumenta Votos DB]
     F --> H[Backend: Esteriliza XSS + Sharp comprime WebP]
     H --> I[Inserción en BD + Bitácora]
@@ -333,11 +342,11 @@ frontend/dev-dist/
 backend/uploads/
 ```
 
-### Comandos de Control en el Servidor
+### Comandos Críticos de PM2 en el Servidor
 - **Ver estado:** `pm2 status`
-- **Ver actividad:** `pm2 logs`
-- **Reiniciar servicios:** `pm2 restart all`
-- **Guardar configuración:** `pm2 save`
+- **Ver actividad y errores:** `pm2 logs`
+- **Reiniciar servicios (Post-Actualización):** `pm2 restart all`
+- **Guardar configuración en arranque:** `pm2 save`
 
 ---
 

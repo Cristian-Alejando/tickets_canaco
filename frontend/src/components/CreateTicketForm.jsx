@@ -3,22 +3,24 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 export default function CreateTicketForm({ 
-    onSubmit, 
-    onCancel, 
-    formData, 
-    setFormData, 
-    onSearch, 
-    sugerencias, 
-    onVoteSugerencia, 
-    misVotos,
-    usuario 
+  onSubmit, 
+  onCancel, 
+  formData, 
+  setFormData, 
+  onSearch, 
+  sugerencias, 
+  onVoteSugerencia, 
+  misVotos,
+  usuario 
 }) {
 
   const navigate = useNavigate();
 
-  // --- 🛡️ ESTADO LOCAL PARA EL TÍTULO (Evita que el input se trabe) ---
   const [localTitulo, setLocalTitulo] = useState(formData.titulo || '');
   const [esParaOtro, setEsParaOtro] = useState(false); 
+  
+  // 👇 NUEVO ESTADO: Controla la ventana del posible duplicado
+  const [modalDuplicado, setModalDuplicado] = useState(null); 
 
   useEffect(() => {
     if (formData.titulo === '' || formData.titulo === undefined) {
@@ -31,8 +33,9 @@ export default function CreateTicketForm({
       ? (localTitulo.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '') 
       : (formData.nombre_contacto?.trim() !== '' && formData.departamento !== '' && localTitulo.trim() !== '' && formData.ubicacion !== '' && formData.descripcion?.trim() !== '');
 
-  const handleLocalSubmit = (e) => {
-    e.preventDefault();
+  // 👇 CORRECCIÓN: Ahora es asíncrono y acepta un parámetro para "forzar" el envío
+  const handleLocalSubmit = async (e, forzarEnvio = false) => {
+    if (e) e.preventDefault();
     
     const correoFinal = formData.email_contacto?.trim() 
         ? `${formData.email_contacto}@canaco.net` 
@@ -45,16 +48,26 @@ export default function CreateTicketForm({
           nombre_contacto: usuario.nombre, 
           email_contacto: usuario.email, 
           departamento: usuario.departamento || '',
-          esParaOtro: false 
+          esParaOtro: false,
+          ignorarDuplicado: forzarEnvio // Enviamos la bandera al backend
         }
       : { 
           ...formData, 
           titulo: localTitulo, 
           email_contacto: correoFinal, 
-          esParaOtro: true 
+          esParaOtro: true,
+          ignorarDuplicado: forzarEnvio // Enviamos la bandera al backend
         };
 
-    onSubmit(e, dataToSend); 
+    // Esperamos la respuesta del componente padre (donde se hace la llamada a la API)
+    const respuesta = await onSubmit(e, dataToSend); 
+
+    // Si el backend nos responde que hay un conflicto (409), abrimos el modal
+    if (respuesta && respuesta.error === "Posible duplicado detectado") {
+        setModalDuplicado(respuesta.ticketExistente);
+    } else if (respuesta && !respuesta.error) {
+        setModalDuplicado(null);
+    }
   };
 
   return (
@@ -64,7 +77,58 @@ export default function CreateTicketForm({
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 relative"
     >
-        
+        {/* 👇 NUEVO: MODAL EMERGENTE DE DUPLICADO 👇 */}
+        <AnimatePresence>
+            {modalDuplicado && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-white/80 backdrop-blur-sm rounded-2xl">
+                    <motion.div 
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.9, opacity: 0 }}
+                        className="bg-white border-2 border-orange-300 shadow-2xl rounded-xl p-6 max-w-md w-full text-center"
+                    >
+                        <div className="text-5xl mb-3">🤔</div>
+                        <h3 className="text-xl font-bold text-gray-800 mb-2">¿Es este tu problema?</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Alguien más ya reportó algo muy similar en tu misma ubicación. 
+                            Si es el mismo problema, súmate a ese reporte para darle mayor prioridad.
+                        </p>
+                        
+                        <div className="bg-orange-50 border border-orange-100 p-4 rounded-lg mb-6 text-left">
+                            <p className="text-sm font-bold text-gray-800">{modalDuplicado.titulo}</p>
+                            <p className="text-xs text-gray-500 mt-1">Reportado el: {new Date(modalDuplicado.fecha_creacion).toLocaleDateString()}</p>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    onVoteSugerencia(modalDuplicado.id, true);
+                                    setModalDuplicado(null);
+                                    setLocalTitulo('');
+                                    onCancel();
+                                }}
+                                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg shadow-md transition"
+                            >
+                                Sí, es el mismo problema (Sumarme)
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    setModalDuplicado(null);
+                                    handleLocalSubmit(null, true); // Reintentamos forzando la creación
+                                }}
+                                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 rounded-lg transition"
+                            >
+                                No, mi problema es diferente
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+        {/* ☝️ FIN DEL MODAL ☝️ */}
+
         {/* ENCABEZADO DINÁMICO */}
         <div className="text-center mb-8">
             <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
@@ -181,7 +245,6 @@ export default function CreateTicketForm({
                         const val = e.target.value;
                         setLocalTitulo(val);
                         
-                        // 👇 Aquí pasamos explícitamente la ubicación actual a la búsqueda
                         if (val.length > 1) {
                             onSearch(val, formData.ubicacion);
                         } else {
@@ -233,7 +296,6 @@ export default function CreateTicketForm({
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition bg-white" 
                     value={formData.ubicacion || ''} 
                     onChange={e => {
-                        // 👇 NUEVA LOGICA: Al seleccionar ubicación, también disparamos la búsqueda 👇
                         const nuevaUbicacion = e.target.value;
                         setFormData({...formData, ubicacion: nuevaUbicacion});
                         

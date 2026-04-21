@@ -120,8 +120,11 @@ function App() {
 
   // EFECTO: CONEXIÓN DE WEBSOCKETS
   useEffect(() => {
-    const socketURL = API_URL.replace('/api', ''); 
-    const socket = io(socketURL);
+    // 🔥 CORRECCIÓN: Usamos la ruta limpia y forzamos los parámetros correctos
+    const socket = io(SOCKET_URL, {
+        transports: ['websocket', 'polling'], 
+        withCredentials: true
+    });
 
     socket.on('ticket_creado', (nuevoTicket) => {
         toast.success(`🎫 ¡Nuevo ticket recibido: ${nuevoTicket.titulo}!`, { icon: '🔔' });

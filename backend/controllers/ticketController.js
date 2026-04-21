@@ -8,7 +8,7 @@ const window = new JSDOM('').window;
 const purify = createDOMPurify(window);
 
 // ==========================================
-// 1. CREAR TICKET (¡AHORA CON EVIDENCIA Y BITÁCORA!)
+// 1. CREAR TICKET (¡CON DETECCIÓN INTELIGENTE DE DUPLICADOS!)
 // ==========================================
 const createTicket = async (req, res) => {
   const { 
@@ -20,7 +20,9 @@ const createTicket = async (req, res) => {
     usuario_id, 
     nombre_contacto, 
     email_contacto,
-    departamento 
+    departamento,
+    // 👇 NUEVO: Recibimos esta bandera del frontend
+    ignorarDuplicado 
   } = req.body;
 
   // Limpiamos los textos antes de usarlos
@@ -31,8 +33,39 @@ const createTicket = async (req, res) => {
   const rutaEvidencia = req.file ? `/uploads/${req.file.filename}` : null;
 
   try {
+    // 👇 PASO A: Validar duplicados si el usuario NO ha forzado el envío 👇
+    // (Como usamos FormData para las fotos, los booleanos llegan como texto "true" o "false")
+    const forzarCreacion = String(ignorarDuplicado) === 'true';
+
+    if (!forzarCreacion) {
+      // Usamos la misma lógica de tu buscador para encontrar palabras clave
+      const palabrasIgnoradas = ['con', 'del', 'las', 'los', 'por', 'que'];
+      const palabras = tituloLimpio.split(' ').filter(p => p.length >= 3 && !palabrasIgnoradas.includes(p.toLowerCase()));
+      
+      if (palabras.length > 0) {
+        const checkSQL = `
+          SELECT id, titulo, fecha_creacion 
+          FROM tickets 
+          WHERE ubicacion = $1 
+          AND estatus != 'resuelto'
+          AND (${palabras.map((_, i) => `titulo ILIKE $${i + 2}`).join(' OR ')})
+          LIMIT 1
+        `;
+        const checkValues = [ubicacion, ...palabras.map(p => `%${p}%`)];
+        const duplicados = await pool.query(checkSQL, checkValues);
+
+        // Si encontramos algo, detenemos la creación y regresamos un error 409 (Conflicto)
+        if (duplicados.rows.length > 0) {
+          return res.status(409).json({
+            error: "Posible duplicado detectado",
+            ticketExistente: duplicados.rows[0]
+          });
+        }
+      }
+    }
+
+    // 👇 PASO B: Si llegamos aquí, es un ticket nuevo o el usuario confirmó que es diferente 👇
     const newTicket = await pool.query(
-      // 👇 CORRECCIÓN AQUÍ: Cambiamos 'Abierto' por 'abierto' (todo minúscula) 👇
       `INSERT INTO tickets (titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto, departamento, estatus, evidencia) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'abierto', $10) RETURNING *`,
       [
