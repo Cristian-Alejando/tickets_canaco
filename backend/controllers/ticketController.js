@@ -1,5 +1,6 @@
 const pool = require('../config/db'); // Importamos la conexión
 const transporter = require('../config/mailer'); // Importamos al cartero de Nodemailer
+const jwt = require('jsonwebtoken'); // Importamos jsonwebtoken para decodificar JWT
 
 // 👇 Filtro de seguridad para limpiar textos maliciosos 👇
 const createDOMPurify = require('dompurify');
@@ -17,13 +18,25 @@ const createTicket = async (req, res) => {
     categoria, 
     prioridad, 
     ubicacion, 
-    usuario_id, 
     nombre_contacto, 
     email_contacto,
     departamento,
     // 👇 NUEVO: Recibimos esta bandera del frontend
     ignorarDuplicado 
   } = req.body;
+
+  // 👇 SEGURIDAD: Obtenemos el usuario_id del token (si existe), NUNCA del body 👇
+  let usuario_id = null;
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      usuario_id = decoded.id;
+    } catch (e) {
+      // Ignorar: el token puede haber expirado, pero permitiremos crear ticket como invitado (usuario_id = null)
+    }
+  }
 
   // Limpiamos los textos antes de usarlos
   const tituloLimpio = purify.sanitize(titulo);
@@ -404,7 +417,7 @@ const updateTicket = async (req, res) => {
 // ==========================================
 const voteTicket = async (req, res) => {
   const { id } = req.params;      
-  const { usuario_id } = req.body; 
+  const usuario_id = req.usuario.id; // Extraído de forma segura del JWT 
 
   try {
     await pool.query("INSERT INTO votos_registro (ticket_id, usuario_id) VALUES ($1, $2)", [id, usuario_id]);
@@ -473,7 +486,8 @@ const searchTickets = async (req, res) => {
 // 6. MIS VOTOS
 // ==========================================
 const getUserVotes = async (req, res) => {
-  const { usuario_id } = req.params;
+  const usuario_id = req.usuario.id; // Extraído de forma segura del JWT
+
   try {
     const result = await pool.query("SELECT ticket_id FROM votos_registro WHERE usuario_id = $1", [usuario_id]);
     res.json(result.rows.map(row => row.ticket_id)); 

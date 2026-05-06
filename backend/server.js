@@ -1,4 +1,15 @@
 require('dotenv').config(); 
+
+// --- PATRÓN FAIL-FAST: Validación de Entorno ---
+const variablesRequeridas = ['JWT_SECRET', 'DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_NAME'];
+const variablesFaltantes = variablesRequeridas.filter(v => !process.env[v]);
+
+if (variablesFaltantes.length > 0) {
+    console.error(`🚨 FATAL ERROR: Faltan las siguientes variables de entorno: ${variablesFaltantes.join(', ')}`);
+    console.error('El servidor no puede iniciar de manera segura. Deteniendo proceso...');
+    process.exit(1);
+}
+// -----------------------------------------------
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
@@ -21,7 +32,7 @@ const server = http.createServer(app);
 
 // CONFIGURACIÓN CORS PARA RED LOCAL (Definimos el origen exacto)
 const corsOptions = {
-  origin: "http://mantenimiento.canaco.net:5173", // Tu Frontend local
+  origin: ["http://mantenimiento.canaco.net:5173", "http://localhost:5173"], // Tu Frontend local
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true

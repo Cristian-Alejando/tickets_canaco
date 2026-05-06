@@ -2,7 +2,7 @@ const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const SECRET_KEY = process.env.JWT_SECRET || 'secreto_super_seguro';
+const SECRET_KEY = process.env.JWT_SECRET;
 
 // ==========================================
 // 1. REGISTRAR USUARIO

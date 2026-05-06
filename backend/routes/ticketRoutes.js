@@ -83,14 +83,14 @@ router.post('/', atraparErroresMulter, optimizarImagen, createTicket);
 // 3. Buscar (PÚBLICO)
 router.get('/buscar', searchTickets);
 
-// 4. Historial de votos (PÚBLICO)
-router.get('/mis-votos/:uid', getUserVotes);
+// 4. Historial de votos (🔒 PROTEGIDO)
+router.get('/mis-votos', verifyToken, getUserVotes);
 
 // 5. Actualizar ticket (🔒 PROTEGIDO: Solo Admin o Técnico)
 router.put('/:id', verifyToken, requireAdminOrTech, updateTicket);
 
-// 6. Votar (PÚBLICO)
-router.post('/:id/vote', voteTicket);
+// 6. Votar (🔒 PROTEGIDO)
+router.post('/:id/vote', verifyToken, voteTicket);
 
 // 7. ELIMINAR TICKET (🔒 MÁXIMA SEGURIDAD: SOLO ADMIN)
 router.delete('/:id', verifyToken, requireAdmin, deleteTicket);

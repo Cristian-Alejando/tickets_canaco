@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { API_URL } from './config';
+import { API_URL, SOCKET_URL } from './config';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
 import { Toaster, toast } from 'react-hot-toast'; 

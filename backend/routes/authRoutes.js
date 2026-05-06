@@ -9,7 +9,10 @@ const { login, register, getUsers, deleteUser } = require('../controllers/authCo
 
 // --- RUTAS PÚBLICAS ---
 router.post('/login', login);
-router.post('/register', register);
+
+// --- RUTAS DE REGISTRO (🔒 PROTEGIDAS: Solo Administradores) ---
+// Solo administradores pueden dar de alta a nuevo personal (Escalada de privilegios parcheada)
+router.post('/register', verifyToken, requireAdmin, register);
 
 // --- RUTAS DE GESTIÓN (🔒 PROTEGIDAS: Solo Administradores) ---
 // Ahora nadie puede ver ni borrar usuarios si no tiene un token válido de Admin

@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 
-const SECRET_KEY = process.env.JWT_SECRET || 'secreto_super_seguro';
+const SECRET_KEY = process.env.JWT_SECRET;
 
 // Este middleware revisa que el usuario traiga un token válido
 const verifyToken = async (req, res, next) => {
