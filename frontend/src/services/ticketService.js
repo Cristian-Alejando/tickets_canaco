@@ -91,7 +91,9 @@ export const createTicket = async (ticketData) => {
       }
     }
 
-    const { data } = await axios.post(`${API_URL}/tickets`, formData);
+    const { data } = await axios.post(`${API_URL}/tickets`, formData, {
+      headers: getAuthHeaders()
+    });
     return { ok: true, id: data.id };
   } catch (error) {
     console.error("Error creating ticket:", error);
@@ -116,17 +118,21 @@ export const updateTicket = async (id, updates) => {
 
 export const voteTicket = async (ticketId, userId) => {
   try {
-    const response = await axios.post(`${API_URL}/tickets/${ticketId}/vote`, { usuario_id: userId });
-    return response;
+    const response = await axios.post(`${API_URL}/tickets/${ticketId}/vote`, { usuario_id: userId }, {
+      headers: getAuthHeaders()
+    });
+    return { ok: true, data: response.data };
   } catch (error) {
     console.error("Error voting:", error);
-    return { ok: false };
+    return { ok: false, error: error.response?.data?.error || "Error al votar" };
   }
 };
 
-export const getMyVotes = async (userId) => {
+export const getMyVotes = async () => {
   try {
-    const { data } = await axios.get(`${API_URL}/tickets/mis-votos/${userId}`);
+    const { data } = await axios.get(`${API_URL}/tickets/mis-votos`, {
+      headers: getAuthHeaders()
+    });
     return data;
   } catch (error) {
     console.error("Error getting votes:", error);

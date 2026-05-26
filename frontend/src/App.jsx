@@ -177,7 +177,8 @@ function App() {
   const cargarTicketsGlobales = async () => {
     try {
       const data = await getTickets();
-      const ticketsOrdenados = data.sort((a, b) => {
+      const safeData = Array.isArray(data) ? data : [];
+      const ticketsOrdenados = safeData.sort((a, b) => {
         if (a.estatus === 'resuelto' && b.estatus !== 'resuelto') return 1;
         if (a.estatus !== 'resuelto' && b.estatus === 'resuelto') return -1;
         return new Date(b.fecha_creacion) - new Date(a.fecha_creacion);
@@ -306,23 +307,25 @@ function App() {
   };
 
   const handleVotar = async (id, desdeSugerencia = false) => {
+    // 1. Bloqueo inmediato si ya está en la memoria local
     if (misVotos.includes(id)) return;
+    
+    // 2. Actualización Optimista de UI al instante
+    const nuevosVotos = [...misVotos, id];
+    setMisVotos(nuevosVotos);
+
+    if (!usuario) {
+      localStorage.setItem('votos_publicos', JSON.stringify(nuevosVotos));
+    }
+
+    setTickets(prev => prev.map(t => t.id === id ? { ...t, votos: Number(t.votos) + 1 } : t));
+    setHistorialTickets(prev => prev.map(t => t.id === id ? { ...t, votos: Number(t.votos) + 1 } : t));
     
     try {
       const userId = usuario ? usuario.id : null;
       const res = await voteTicket(id, userId);
 
       if (res.ok) {
-        cargarTicketsGlobales();
-        if (usuario) cargarHistorialPaginado(historialPage);
-        
-        const nuevosVotos = [...misVotos, id];
-        setMisVotos(nuevosVotos);
-
-        if (!usuario) {
-          localStorage.setItem('votos_publicos', JSON.stringify(nuevosVotos));
-        }
-
         if (desdeSugerencia) {
           toast.success('¡Voto registrado! Gracias por confirmar.');
           setSugerencias([]);
@@ -332,12 +335,24 @@ function App() {
           toast.success('¡Soporte notificado! Sumamos tu confirmación.');
         }
       } else {
-        toast.error('No se pudo registrar el voto.');
+        revertVotoOptimista(id);
+        toast.error(res.error || 'No se pudo registrar el voto.');
       }
     } catch (error) {
       console.error(error);
+      revertVotoOptimista(id);
       toast.error('Problema de conexión al votar.');
     }
+  };
+
+  const revertVotoOptimista = (id) => {
+    const nuevosVotos = misVotos.filter(v => v !== id);
+    setMisVotos(nuevosVotos);
+    if (!usuario) {
+      localStorage.setItem('votos_publicos', JSON.stringify(nuevosVotos));
+    }
+    setTickets(prev => prev.map(t => t.id === id ? { ...t, votos: Math.max(0, Number(t.votos) - 1) } : t));
+    setHistorialTickets(prev => prev.map(t => t.id === id ? { ...t, votos: Math.max(0, Number(t.votos) - 1) } : t));
   };
 
   const guardarEdicion = async (id) => {
@@ -738,8 +753,8 @@ function App() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full min-w-0">
                     <h3 className="text-lg font-bold text-blue-900 mb-4 text-center">Reportes por Departamento</h3>
-                    <div className="h-64 w-full min-w-0">
-                      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
+                    <div style={{ width: '100%', height: '300px' }}>
+                      <ResponsiveContainer width="99%" height={300}>
                         <PieChart>
                           <Pie data={getDatosDepartamentos()} dataKey="cantidad" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                             {getDatosDepartamentos().map((entry, index) => (
@@ -753,8 +768,8 @@ function App() {
                   </div>
                   <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 w-full min-w-0">
                     <h3 className="text-lg font-bold text-blue-900 mb-4 text-center">Incidencias por Categoría</h3>
-                    <div className="h-64 w-full min-w-0">
-                      <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={250}>
+                    <div style={{ width: '100%', height: '300px' }}>
+                      <ResponsiveContainer width="99%" height={300}>
                         <BarChart data={getDatosCategorias()} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                           <XAxis dataKey="name" tick={{fontSize: 12}} /><YAxis allowDecimals={false} /><Tooltip cursor={{fill: '#f3f4f6'}} />
                           <Bar dataKey="cantidad" fill="#3b82f6" radius={[4, 4, 0, 0]} />
