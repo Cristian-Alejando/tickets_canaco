@@ -115,7 +115,7 @@ const createTicket = async (req, res) => {
     if (email_contacto && email_contacto.trim() !== '') {
       const mailOptions = {
         from: '"Soporte CANACO" <helpdesk.canacomty@gmail.com>',
-        to: `${email_contacto}, ${correoAdmin}, juan.hernandez@canaco.net`,
+        to: `${email_contacto}, soporte365@canaco.net, juan.hernandez@canaco.net`,
         subject: `🎫 Reporte Recibido - Folio #${ticketGuardado.id}`,
         html: `
                 <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
@@ -161,7 +161,7 @@ const createTicket = async (req, res) => {
     } else {
       const mailOptionsAdmin = {
         from: '"Soporte CANACO" <helpdesk.canacomty@gmail.com>',
-        to: `${correoAdmin}, juan.hernandez@canaco.net`,
+        to: 'soporte365@canaco.net, juan.hernandez@canaco.net',
         subject: `🚨 NUEVO TICKET SIN CORREO - Folio #${ticketGuardado.id}`,
         html: `
                 <div style="font-family: Arial, sans-serif; color: #333;">
