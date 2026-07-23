@@ -26,7 +26,9 @@ export const loginUser = async (credentials) => {
 
 export const registerUser = async (userData) => {
   try {
-    const { data } = await axios.post(`${API_URL}/auth/register`, userData);
+    const { data } = await axios.post(`${API_URL}/auth/register`, userData, {
+      headers: getAuthHeaders()
+    });
     return data;
   } catch (error) {
     console.error("Error register:", error);
