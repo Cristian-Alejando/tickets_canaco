@@ -81,8 +81,10 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
             {/* --- BARRA DE FILTROS --- */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Estatus</label>
+                    <label htmlFor="filtro-estatus" className="text-xs font-bold text-gray-500 uppercase tracking-wider">Estatus</label>
                     <select 
+                        id="filtro-estatus"
+                        name="filtroEstatus"
                         className="w-full mt-2 p-2.5 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
                         value={filtroEstatus}
                         onChange={(e) => setFiltroEstatus(e.target.value)}
@@ -94,8 +96,10 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
                     </select>
                 </div>
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Departamento</label>
+                    <label htmlFor="filtro-depto" className="text-xs font-bold text-gray-500 uppercase tracking-wider">Departamento</label>
                     <select 
+                        id="filtro-depto"
+                        name="filtroDepto"
                         className="w-full mt-2 p-2.5 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
                         value={filtroDepto}
                         onChange={(e) => setFiltroDepto(e.target.value)}
@@ -111,18 +115,22 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
                     </select>
                 </div>
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Desde</label>
+                    <label htmlFor="filtro-desde" className="text-xs font-bold text-gray-500 uppercase tracking-wider">Desde</label>
                     <input 
                         type="date" 
+                        id="filtro-desde"
+                        name="fechaInicio"
                         className="w-full mt-2 p-2.5 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
                         value={fechaInicio}
                         onChange={(e) => setFechaInicio(e.target.value)}
                     />
                 </div>
                 <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Hasta</label>
+                    <label htmlFor="filtro-hasta" className="text-xs font-bold text-gray-500 uppercase tracking-wider">Hasta</label>
                     <input 
                         type="date" 
+                        id="filtro-hasta"
+                        name="fechaFin"
                         className="w-full mt-2 p-2.5 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
                         value={fechaFin}
                         onChange={(e) => setFechaFin(e.target.value)}
