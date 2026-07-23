@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TicketCard from '../components/TicketCard';
+import Footer from '../components/Footer';
 
 export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
   const navigate = useNavigate();
@@ -14,8 +15,15 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
   // --- NUEVO: Estado para el ticket seleccionado (abre el modal) ---
   const [selectedTicket, setSelectedTicket] = useState(null);
 
+  const [viewMode, setViewMode] = useState('all');
+  const userIdentity = localStorage.getItem('canaco_user_identity');
+
   // --- FILTRADO INTELIGENTE (Combinado) ---
   const ticketsFiltrados = tickets.filter(t => {
+    if (viewMode === 'mine' && userIdentity) {
+      if (t.creador !== userIdentity && t.nombre_contacto !== userIdentity) return false;
+    }
+
     const matchEstatus = filtroEstatus === 'todos' || t.estatus === filtroEstatus;
     const matchDepto = filtroDepto === 'todos' || t.departamento === filtroDepto;
     
@@ -35,8 +43,9 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
   });
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 md:p-8 w-full flex justify-center relative">
-        <div className="max-w-5xl w-full animate-fade-in-up">
+    <div className="min-h-screen bg-gray-100 flex flex-col w-full relative">
+        <div className="flex-grow flex justify-center p-4 md:p-8">
+            <div className="max-w-5xl w-full animate-fade-in-up">
             
             {/* --- ENCABEZADO --- */}
             <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -50,6 +59,23 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
                 >
                     ➕ Nuevo Reporte
                 </button>
+            </div>
+
+            <div className="flex justify-center md:justify-start mb-6">
+                <div className="bg-gray-200 p-1 rounded-lg flex space-x-1">
+                    <button 
+                        onClick={() => setViewMode('all')}
+                        className={`px-4 py-2 rounded-md font-bold text-sm transition-colors ${viewMode === 'all' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
+                    >
+                        Todos los reportes
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('mine')}
+                        className={`px-4 py-2 rounded-md font-bold text-sm transition-colors ${viewMode === 'mine' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
+                    >
+                        Mis reportes
+                    </button>
+                </div>
             </div>
 
             {/* --- BARRA DE FILTROS --- */}
@@ -148,17 +174,45 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
                                         </td>
                                         <td className="p-4 text-center">
                                             {/* Prevenimos la propagación para que el voto no abra el modal */}
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); handleVotar(t.id); }}
-                                                disabled={misVotos.includes(t.id) || t.estatus === 'resuelto'}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                                                    t.estatus === 'resuelto' ? 'bg-gray-100 text-gray-400 cursor-not-allowed' :
-                                                    misVotos.includes(t.id) ? 'bg-gray-200 text-gray-600 cursor-not-allowed' :
-                                                    'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
-                                                }`}
-                                            >
-                                                {misVotos.includes(t.id) ? 'Votado' : t.estatus === 'resuelto' ? 'Cerrado' : '✋ Yo también'}
-                                            </button>
+                                            {(t.estatus === 'resuelto' || t.estatus === 'cerrado') && userIdentity && (t.creador === userIdentity || t.nombre_contacto === userIdentity) ? (
+                                                <button 
+                                                    onClick={async (e) => { 
+                                                        e.stopPropagation(); 
+                                                        const motivo = window.prompt('Indica brevemente por qué deseas reabrir este reporte:');
+                                                        if (motivo !== null) {
+                                                            try {
+                                                                const { reopenTicket } = await import('../services/ticketService');
+                                                                const res = await reopenTicket(t.id, motivo);
+                                                                if (res.ok) {
+                                                                    // El websocket actualizará la vista
+                                                                } else {
+                                                                    alert('Error al reabrir: ' + res.error);
+                                                                }
+                                                            } catch (err) {
+                                                                console.error(err);
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1.5 rounded-lg text-xs font-bold transition bg-orange-100 text-orange-700 hover:bg-orange-200 border border-orange-200 shadow-sm"
+                                                >
+                                                    🔄 Reabrir Reporte
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleVotar(t.id); }}
+                                                    disabled={misVotos.includes(t.id) || t.estatus === 'resuelto' || t.estatus === 'cerrado' || (userIdentity && (t.creador === userIdentity || t.nombre_contacto === userIdentity))}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                                                        (t.estatus === 'resuelto' || t.estatus === 'cerrado') ? 'bg-gray-100 text-gray-400 cursor-not-allowed' :
+                                                        (userIdentity && (t.creador === userIdentity || t.nombre_contacto === userIdentity)) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' :
+                                                        misVotos.includes(t.id) ? 'bg-green-100 text-green-700 cursor-not-allowed' :
+                                                        'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                                                    }`}
+                                                >
+                                                    {(t.estatus === 'resuelto' || t.estatus === 'cerrado') ? 'Cerrado' :
+                                                     (userIdentity && (t.creador === userIdentity || t.nombre_contacto === userIdentity)) ? '👤 Tu reporte' :
+                                                     misVotos.includes(t.id) ? '✋ Ya te sumaste' : '✋ Yo también'}
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}
@@ -169,8 +223,17 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
             ) : (
                 <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm">
                     <span className="text-5xl">📭</span>
-                    <h3 className="text-xl font-bold text-gray-700 mt-4">No hay reportes con estos filtros</h3>
-                    <p className="text-gray-400 mt-2">Intenta cambiar las opciones de búsqueda o el rango de fechas.</p>
+                    {viewMode === 'mine' ? (
+                        <>
+                            <h3 className="text-xl font-bold text-gray-700 mt-4">Sin reportes</h3>
+                            <p className="text-gray-400 mt-2">No se han encontrado reportes creados desde este dispositivo o navegador.</p>
+                        </>
+                    ) : (
+                        <>
+                            <h3 className="text-xl font-bold text-gray-700 mt-4">No hay reportes con estos filtros</h3>
+                            <p className="text-gray-400 mt-2">Intenta cambiar las opciones de búsqueda o el rango de fechas.</p>
+                        </>
+                    )}
                 </div>
             )}
         </div>
@@ -217,6 +280,8 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
                 </div>
             </div>
         )}
+        </div>
+        <Footer />
     </div>
   );
 }

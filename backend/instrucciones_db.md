@@ -26,7 +26,10 @@ ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS activo BOOLEAN DEFAULT TRUE;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS departamento VARCHAR(100);
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS evidencia TEXT;
 
--- 6. NUEVO: Soporte para Bitácora de Auditoría (Historial de cambios inmutable)
+-- 6. NUEVO: Soporte para Identificación de Creador (localStorage)
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS creador VARCHAR(100);
+
+-- 7. NUEVO: Soporte para Bitácora de Auditoría (Historial de cambios inmutable)
 CREATE TABLE IF NOT EXISTS bitacora_tickets (
     id SERIAL PRIMARY KEY,
     ticket_id INTEGER REFERENCES tickets(id) ON DELETE CASCADE,
@@ -79,7 +82,8 @@ CREATE TABLE tickets (
     email_contacto VARCHAR(100),  
     asignado_a INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
     departamento VARCHAR(100),
-    evidencia VARCHAR(255)
+    evidencia VARCHAR(255),
+    creador VARCHAR(100)
 );
 
 -- C) Tabla de Historial de Votos (Previene votos duplicados)

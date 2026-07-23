@@ -30,9 +30,24 @@ app.set('trust proxy', 1);
 // Creamos el servidor HTTP envolviendo nuestra app de Express 
 const server = http.createServer(app);
 
-// CONFIGURACIÓN CORS PARA RED LOCAL (Definimos el origen exacto)
+// CONFIGURACIÓN CORS PARA RED LOCAL (Validación dinámica)
+const localNetworkRegex = /^http:\/\/192\.168\.\d+\.\d+(:5173)?$/;
+const additionalAllowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://mantenimiento.canaco.net:5173",
+  "http://localhost:5173",
+].filter(Boolean);
+
 const corsOptions = {
-  origin: ["http://mantenimiento.canaco.net:5173", "http://localhost:5173"], // Tu Frontend local
+  origin: function (origin, callback) {
+    // Permitir si no hay origen, está en los adicionales, o coincide con la subred local (192.168.x.x)
+    if (!origin || additionalAllowedOrigins.includes(origin) || localNetworkRegex.test(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS Bloqueado: Intento de acceso desde ${origin}`);
+      callback(new Error('No permitido por CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true

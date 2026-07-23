@@ -23,10 +23,19 @@ export default function CreateTicketForm({
   const [modalDuplicado, setModalDuplicado] = useState(null); 
 
   useEffect(() => {
+    const savedIdentity = localStorage.getItem('canaco_user_identity');
+    if (savedIdentity && !formData.nombre_contacto) {
+      setFormData(prev => ({ ...prev, nombre_contacto: savedIdentity }));
+    }
+  }, []);
+
+  useEffect(() => {
     if (formData.titulo === '' || formData.titulo === undefined) {
       setLocalTitulo('');
     }
   }, [formData.titulo]);
+
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 
   const isFormValid = 
       (usuario && !esParaOtro) 
@@ -48,6 +57,7 @@ export default function CreateTicketForm({
           nombre_contacto: usuario.nombre, 
           email_contacto: usuario.email, 
           departamento: usuario.departamento || '',
+          creador: usuario.nombre,
           esParaOtro: false,
           ignorarDuplicado: forzarEnvio // Enviamos la bandera al backend
         }
@@ -55,9 +65,17 @@ export default function CreateTicketForm({
           ...formData, 
           titulo: localTitulo, 
           email_contacto: correoFinal, 
+          creador: formData.nombre_contacto,
           esParaOtro: true,
           ignorarDuplicado: forzarEnvio // Enviamos la bandera al backend
         };
+
+    // Guardamos la identidad del creador en localStorage si no es usuario autenticado
+    if (!usuario || esParaOtro) {
+      if (formData.nombre_contacto) {
+        localStorage.setItem('canaco_user_identity', formData.nombre_contacto);
+      }
+    }
 
     // Esperamos la respuesta del componente padre (donde se hace la llamada a la API)
     const respuesta = await onSubmit(e, dataToSend); 
@@ -331,27 +349,15 @@ export default function CreateTicketForm({
                 <div className="flex flex-col sm:flex-row gap-4 w-full">
                     
                     <label className="flex-1 flex flex-col items-center justify-center h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-all">
-                        <span className="text-2xl mb-1">📷</span>
-                        <span className="text-sm text-gray-600 font-semibold">Tomar Foto</span>
+                        <span className="text-2xl mb-1">{isMobile ? '📷' : '📁'}</span>
+                        <span className="text-sm text-gray-600 font-semibold">
+                            {isMobile ? 'Tomar Foto' : 'Adjuntar Captura / Imagen'}
+                        </span>
                         <input 
                             type="file" 
                             className="hidden" 
                             accept="image/*"
-                            capture="environment" 
-                            onChange={(e) => {
-                                const file = e.target.files[0];
-                                if(file) setFormData({...formData, evidencia: file});
-                            }} 
-                        />
-                    </label>
-
-                    <label className="flex-1 flex flex-col items-center justify-center h-24 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-all">
-                        <span className="text-2xl mb-1">📁</span>
-                        <span className="text-sm text-gray-600 font-semibold">Subir Archivo</span>
-                        <input 
-                            type="file" 
-                            className="hidden" 
-                            accept="image/png, image/jpeg, image/jpg"
+                            {...(isMobile ? { capture: "environment" } : {})}
                             onChange={(e) => {
                                 const file = e.target.files[0];
                                 if(file) setFormData({...formData, evidencia: file});

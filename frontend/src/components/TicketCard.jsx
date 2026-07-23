@@ -28,6 +28,10 @@ export default function TicketCard({
   const [bitacoraDatos, setBitacoraDatos] = useState([]);
   const [cargandoBitacora, setCargandoBitacora] = useState(false);
 
+  const userIdentity = localStorage.getItem('canaco_user_identity');
+  const isCreator = userIdentity && (ticket.creador === userIdentity || ticket.nombre_contacto === userIdentity);
+  const alreadyVoted = misVotos.includes(ticket.id);
+
   const handleDeleteClick = () => {
     if (window.confirm(`⚠️ PELIGRO:\n\n¿Estás seguro de que quieres ELIMINAR el ticket "${ticket.titulo}"?\n\nEsta acción es permanente y NO se puede deshacer.`)) {
       onDelete(ticket.id);
@@ -244,12 +248,18 @@ export default function TicketCard({
               </div>
             )}
             
-            {ticket.estatus !== 'resuelto' && (
-                <button onClick={() => onVote(ticket.id)} disabled={misVotos.includes(ticket.id)}
+            {ticket.estatus !== 'resuelto' && ticket.estatus !== 'cerrado' && (
+                <button 
+                    onClick={() => onVote(ticket.id)} 
+                    disabled={alreadyVoted || isCreator}
                     className={`group flex items-center justify-center gap-2 border text-sm px-4 py-2 rounded-lg transition shadow-sm ${
-                      misVotos.includes(ticket.id) ? 'bg-blue-100 text-blue-600 border-blue-200 cursor-not-allowed opacity-80' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400 hover:text-blue-600'
+                      isCreator ? 'bg-gray-100 text-gray-500 border-gray-200 cursor-not-allowed opacity-80' :
+                      alreadyVoted ? 'bg-green-100 text-green-700 border-green-200 cursor-not-allowed opacity-80' : 
+                      'bg-white text-gray-600 border-gray-200 hover:border-blue-400 hover:text-blue-600'
                     }`}>
-                    <span>{misVotos.includes(ticket.id) ? '✅' : '✋'}</span> {misVotos.includes(ticket.id) ? 'Votado' : 'Yo también'} <span className="font-bold bg-gray-100 px-1.5 rounded text-xs group-hover:bg-blue-100 ml-1">{ticket.votos || 0}</span>
+                    <span>{isCreator ? '👤' : alreadyVoted ? '✋' : '✋'}</span> 
+                    {isCreator ? 'Tu reporte' : alreadyVoted ? 'Ya te sumaste' : 'Yo también'} 
+                    <span className="font-bold bg-gray-100 px-1.5 rounded text-xs group-hover:bg-blue-100 ml-1 text-gray-600">{ticket.votos || 0}</span>
                 </button>
             )}
 

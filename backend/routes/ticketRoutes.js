@@ -14,7 +14,8 @@ const {
   searchTickets,
   getUserVotes,
   deleteTicket,
-  getTicketBitacora 
+  getTicketBitacora,
+  reopenTicket
 } = require('../controllers/ticketController');
 
 // --- 2. CONFIGURACIÓN DE MULTER (ALTO RENDIMIENTO EN RAM) ---
@@ -89,13 +90,16 @@ router.get('/mis-votos', verifyToken, getUserVotes);
 // 5. Actualizar ticket (🔒 PROTEGIDO: Solo Admin o Técnico)
 router.put('/:id', verifyToken, requireAdminOrTech, updateTicket);
 
-// 6. Votar (🔒 PROTEGIDO)
-router.post('/:id/vote', verifyToken, voteTicket);
+// 6. Votar (PÚBLICO)
+router.post('/:id/vote', voteTicket);
 
 // 7. ELIMINAR TICKET (🔒 MÁXIMA SEGURIDAD: SOLO ADMIN)
 router.delete('/:id', verifyToken, requireAdmin, deleteTicket);
 
 // 8. OBTENER BITÁCORA DEL TICKET (🔒 PROTEGIDO: Solo Admin o Técnico)
 router.get('/:id/bitacora', verifyToken, requireAdminOrTech, getTicketBitacora);
+
+// 9. REABRIR TICKET (PÚBLICO - Restringido por identidad en front)
+router.patch('/:id/reopen', reopenTicket);
 
 module.exports = router;

@@ -21,6 +21,7 @@ const createTicket = async (req, res) => {
     nombre_contacto,
     email_contacto,
     departamento,
+    creador,
     // 👇 NUEVO: Recibimos esta bandera del frontend
     ignorarDuplicado
   } = req.body;
@@ -41,6 +42,7 @@ const createTicket = async (req, res) => {
   // Limpiamos los textos antes de usarlos
   const tituloLimpio = purify.sanitize(titulo);
   const descripcionLimpia = purify.sanitize(descripcion);
+  const creadorLimpio = creador ? purify.sanitize(creador) : 'Anónimo';
 
   // Si req.file existe, armamos la ruta completa. Si no, lo dejamos como null.
   const rutaEvidencia = req.file ? `/uploads/${req.file.filename}` : null;
@@ -79,8 +81,8 @@ const createTicket = async (req, res) => {
 
     // 👇 PASO B: Si llegamos aquí, es un ticket nuevo o el usuario confirmó que es diferente 👇
     const newTicket = await pool.query(
-      `INSERT INTO tickets (titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto, departamento, estatus, evidencia) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'abierto', $10) RETURNING *`,
+      `INSERT INTO tickets (titulo, descripcion, categoria, prioridad, ubicacion, usuario_id, nombre_contacto, email_contacto, departamento, estatus, evidencia, creador) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'abierto', $10, $11) RETURNING *`,
       [
         tituloLimpio,
         descripcionLimpia,
@@ -91,7 +93,8 @@ const createTicket = async (req, res) => {
         nombre_contacto,
         email_contacto,
         departamento,
-        rutaEvidencia
+        rutaEvidencia,
+        creadorLimpio
       ]
     );
 
@@ -112,7 +115,7 @@ const createTicket = async (req, res) => {
     if (email_contacto && email_contacto.trim() !== '') {
       const mailOptions = {
         from: '"Soporte CANACO" <helpdesk.canacomty@gmail.com>',
-        to: `${email_contacto}, ${correoAdmin}`,
+        to: `${email_contacto}, ${correoAdmin}, juan.hernandez@canaco.net`,
         subject: `🎫 Reporte Recibido - Folio #${ticketGuardado.id}`,
         html: `
                 <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
@@ -127,6 +130,7 @@ const createTicket = async (req, res) => {
                         <li style="margin-bottom: 5px;"><strong>Estatus:</strong> Abierto 🟡</li>
                     </ul>
                     <p>El departamento correspondiente ya tiene tu caso y lo revisará a la brevedad.</p>
+                    <p>Puedes dar seguimiento a tu ticket en nuestro portal: <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" style="color: #003366; text-decoration: underline;">Portal de Mantenimiento</a></p>
                     <br><br>
                     
                     <table cellpadding="0" cellspacing="0" border="0" style="font-family: 'Century Gothic', Arial, sans-serif; margin-top: 20px;">
@@ -157,7 +161,7 @@ const createTicket = async (req, res) => {
     } else {
       const mailOptionsAdmin = {
         from: '"Soporte CANACO" <helpdesk.canacomty@gmail.com>',
-        to: correoAdmin,
+        to: `${correoAdmin}, juan.hernandez@canaco.net`,
         subject: `🚨 NUEVO TICKET SIN CORREO - Folio #${ticketGuardado.id}`,
         html: `
                 <div style="font-family: Arial, sans-serif; color: #333;">
@@ -381,6 +385,7 @@ const updateTicket = async (req, res) => {
                     <p style="background-color: #f4f4f4; padding: 10px; border-left: 4px solid ${colorEstatus};">
                         <em>${comentariosLimpios || 'Sin comentarios adicionales.'}</em>
                     </p>
+                    <p>Puedes ver los detalles actualizados en: <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" style="color: ${colorEstatus}; text-decoration: underline;">Portal de Mantenimiento</a></p>
                     <br><br>
                     <table cellpadding="0" cellspacing="0" border="0" style="font-family: 'Century Gothic', Arial, sans-serif; margin-top: 20px;">
                       <tr>
@@ -419,25 +424,27 @@ const updateTicket = async (req, res) => {
 // ==========================================
 const voteTicket = async (req, res) => {
   const { id } = req.params;      
-  const usuario_id = req.usuario.id; // Extraído de forma segura del JWT 
+  const { usuario_id } = req.body; 
 
   try {
-    // 1. Verificamos si el usuario ya votó por este ticket
-    const checkVote = await pool.query(
-      "SELECT * FROM votos_registro WHERE ticket_id = $1 AND usuario_id = $2",
-      [id, usuario_id]
-    );
+    if (usuario_id) {
+        // 1. Verificamos si el usuario ya votó por este ticket
+        const checkVote = await pool.query(
+          "SELECT * FROM votos_registro WHERE ticket_id = $1 AND usuario_id = $2",
+          [id, usuario_id]
+        );
 
-    // 2. Si el registro ya existe, enviamos 400 directamente
-    if (checkVote.rows.length > 0) {
-      return res.status(400).json({ error: "Ya has votado por este ticket" });
+        // 2. Si el registro ya existe, enviamos 400 directamente
+        if (checkVote.rows.length > 0) {
+          return res.status(400).json({ error: "Ya has votado por este ticket" });
+        }
+
+        // 3. Si no ha votado, insertamos el voto
+        await pool.query(
+          "INSERT INTO votos_registro (ticket_id, usuario_id) VALUES ($1, $2)", 
+          [id, usuario_id]
+        );
     }
-
-    // 3. Si no ha votado, insertamos el voto
-    await pool.query(
-      "INSERT INTO votos_registro (ticket_id, usuario_id) VALUES ($1, $2)", 
-      [id, usuario_id]
-    );
     
     // 4. Actualizamos contador
     const result = await pool.query(
@@ -550,7 +557,7 @@ const deleteTicket = async (req, res) => {
                     <h2 style="color: #d9534f;">Aviso de cancelación</h2>
                     <p>Hola <strong>${ticketBorrado.nombre_contacto || 'colaborador'}</strong>,</p>
                     <p>Te informamos que tu ticket con folio <strong>#${ticketBorrado.id}</strong> ha sido cancelado o eliminado del sistema.</p>
-                    <p>Si consideras que esto es un error, por favor comunícate con nosotros.</p>
+                    <p>Si consideras que esto es un error, por favor comunícate con nosotros o visita el portal: <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" style="color: #d9534f; text-decoration: underline;">Portal de Mantenimiento</a></p>
                     <br><br>
                     <table cellpadding="0" cellspacing="0" border="0" style="font-family: 'Century Gothic', Arial, sans-serif; margin-top: 20px;">
                       <tr>
@@ -605,6 +612,56 @@ const getTicketBitacora = async (req, res) => {
   }
 };
 
+// ==========================================
+// 9. REABRIR TICKET 
+// ==========================================
+const reopenTicket = async (req, res) => {
+  const { id } = req.params;
+  const { motivo_reapertura } = req.body;
+
+  try {
+    const ticketCheck = await pool.query('SELECT * FROM tickets WHERE id = $1', [id]);
+    if (ticketCheck.rows.length === 0) return res.status(404).json({ error: 'Ticket no encontrado' });
+
+    const ticketViejo = ticketCheck.rows[0];
+
+    if (ticketViejo.estatus !== 'resuelto' && ticketViejo.estatus !== 'cerrado') {
+      return res.status(400).json({ error: 'El ticket ya se encuentra abierto' });
+    }
+
+    const motivoLimpio = motivo_reapertura ? purify.sanitize(motivo_reapertura) : '';
+    let nuevoComentario = ticketViejo.comentarios || '';
+    if (motivoLimpio) {
+      nuevoComentario += `\n[Reabierto por el usuario]: ${motivoLimpio}`;
+    } else {
+      nuevoComentario += `\n[Reabierto por el usuario]`;
+    }
+
+    const result = await pool.query(
+      `UPDATE tickets SET estatus = 'abierto', comentarios = $1, fecha_actualizacion = NOW(), fecha_cierre = NULL WHERE id = $2 RETURNING *`,
+      [nuevoComentario.trim(), id]
+    );
+
+    const ticketAct = result.rows[0];
+
+    await pool.query(
+      `INSERT INTO bitacora_tickets (ticket_id, usuario_id, accion, detalles) VALUES ($1, $2, $3, $4)`,
+      [id, null, 'REAPERTURA', `El usuario reabrió el ticket. Motivo: ${motivoLimpio || 'Sin motivo especificado'}`]
+    );
+
+    const io = req.app.get('socketio');
+    if (io) {
+      io.emit('ticket_actualizado', ticketAct);
+    }
+
+    res.json({ message: 'Ticket reabierto correctamente', ticket: ticketAct });
+
+  } catch (error) {
+    console.error('Error al reabrir ticket:', error);
+    res.status(500).json({ error: 'Error al reabrir el ticket' });
+  }
+};
+
 module.exports = {
   createTicket,
   getAllTickets,
@@ -613,5 +670,6 @@ module.exports = {
   searchTickets,
   getUserVotes,
   deleteTicket,
-  getTicketBitacora
+  getTicketBitacora,
+  reopenTicket
 };

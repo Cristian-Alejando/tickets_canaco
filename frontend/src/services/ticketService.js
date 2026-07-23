@@ -164,6 +164,16 @@ export const getTicketBitacora = async (id) => {
   }
 };
 
+export const reopenTicket = async (id, motivo_reapertura) => {
+  try {
+    const { data } = await axios.patch(`${API_URL}/tickets/${id}/reopen`, { motivo_reapertura });
+    return { ok: true, ticket: data.ticket };
+  } catch (error) {
+    console.error("Error reopening ticket:", error);
+    return { ok: false, error: error.response?.data?.error || "Error de conexión" };
+  }
+};
+
 // ==========================================
 // 3. BUSCADOR INTELIGENTE
 // ==========================================

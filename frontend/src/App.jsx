@@ -24,6 +24,7 @@ import ConfigModal from './components/ConfigModal';
 import UsersList from './components/UsersList';
 import RegisterPage from './pages/RegisterPage';
 import PublicBoardPage from './pages/PublicBoardPage';
+import Footer from './components/Footer';
 
 // Servicios
 import {
@@ -160,7 +161,7 @@ function App() {
       cargarMisVotos();
       cargarUsuarios();
     } else {
-      const votosLocales = JSON.parse(localStorage.getItem('votos_publicos')) || [];
+      const votosLocales = JSON.parse(localStorage.getItem('canaco_voted_tickets')) || [];
       setMisVotos(votosLocales);
     }
   }, [usuario]);
@@ -315,7 +316,7 @@ function App() {
     setMisVotos(nuevosVotos);
 
     if (!usuario) {
-      localStorage.setItem('votos_publicos', JSON.stringify(nuevosVotos));
+      localStorage.setItem('canaco_voted_tickets', JSON.stringify(nuevosVotos));
     }
 
     setTickets(prev => prev.map(t => t.id === id ? { ...t, votos: Number(t.votos) + 1 } : t));
@@ -349,7 +350,7 @@ function App() {
     const nuevosVotos = misVotos.filter(v => v !== id);
     setMisVotos(nuevosVotos);
     if (!usuario) {
-      localStorage.setItem('votos_publicos', JSON.stringify(nuevosVotos));
+      localStorage.setItem('canaco_voted_tickets', JSON.stringify(nuevosVotos));
     }
     setTickets(prev => prev.map(t => t.id === id ? { ...t, votos: Math.max(0, Number(t.votos) - 1) } : t));
     setHistorialTickets(prev => prev.map(t => t.id === id ? { ...t, votos: Math.max(0, Number(t.votos) - 1) } : t));
@@ -565,36 +566,36 @@ function App() {
       <Routes>
         <Route path="/" element={
           usuario ? <Navigate to="/admin/dashboard" replace /> : (
-            <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 w-full">
-              <div className="max-w-2xl w-full animate-fade-in-up">
-                <div className="text-center mb-8">
-                  <img src="/logo_canaco_oficial.png" alt="Logo" className="h-24 mx-auto mb-4 object-contain" />
-                  <h1 className="text-3xl font-bold text-blue-900">Buzón de Mantenimiento</h1>
-                  <p className="text-gray-500 mt-2">Reporta incidencias para mejoras de CANACO</p>
-                  <button 
-                    onClick={() => navigate('/tablero')} 
-                    className="mt-6 px-8 py-3 bg-white text-blue-700 font-bold rounded-full shadow border border-blue-100 hover:bg-blue-50 transition flex items-center gap-2 mx-auto"
-                  >
-                    👀 Ver Tablero Público de Reportes
-                  </button>
-                </div>
-                <CreateTicketForm 
-                  onSubmit={handleCreateTicket} 
-                  onCancel={() => setFormData({
-                    titulo: '', ubicacion: '', descripcion: '', departamento: '', categoria: 'Mantenimiento', prioridad: 'media', nombre_contacto: '', email_contacto: ''
-                  })} 
-                  formData={formData} 
-                  setFormData={setFormData} 
-                  onSearch={buscarSimilares} 
-                  sugerencias={sugerencias} 
-                  onVoteSugerencia={handleVotar} 
-                  misVotos={misVotos} 
-                  usuario={null} 
-                />
-                <div className="mt-8 text-xs text-gray-400 text-center">
-                  © 2026 Cámara Nacional de Comercio Monterrey
+            <div className="min-h-screen bg-gray-100 flex flex-col w-full">
+              <div className="flex-grow flex flex-col items-center justify-center p-4 w-full">
+                <div className="max-w-2xl w-full animate-fade-in-up my-8">
+                  <div className="text-center mb-8">
+                    <img src="/logo_canaco_oficial.png" alt="Logo" className="h-24 mx-auto mb-4 object-contain" />
+                    <h1 className="text-3xl font-bold text-blue-900">Buzón de Mantenimiento</h1>
+                    <p className="text-gray-500 mt-2">Reporta incidencias para mejoras de CANACO</p>
+                    <button 
+                      onClick={() => navigate('/tablero')} 
+                      className="mt-6 px-8 py-3 bg-white text-blue-700 font-bold rounded-full shadow border border-blue-100 hover:bg-blue-50 transition flex items-center gap-2 mx-auto"
+                    >
+                      👀 Ver Tablero Público de Reportes
+                    </button>
+                  </div>
+                  <CreateTicketForm 
+                    onSubmit={handleCreateTicket} 
+                    onCancel={() => setFormData({
+                      titulo: '', ubicacion: '', descripcion: '', departamento: '', categoria: 'Mantenimiento', prioridad: 'media', nombre_contacto: '', email_contacto: ''
+                    })} 
+                    formData={formData} 
+                    setFormData={setFormData} 
+                    onSearch={buscarSimilares} 
+                    sugerencias={sugerencias} 
+                    onVoteSugerencia={handleVotar} 
+                    misVotos={misVotos} 
+                    usuario={null} 
+                  />
                 </div>
               </div>
+              <Footer />
             </div>
           )
         } />
