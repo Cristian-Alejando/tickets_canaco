@@ -1,4 +1,35 @@
+import { useState, useEffect } from 'react';
+import Swal from 'sweetalert2';
+
 export default function Footer() {
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+    useEffect(() => {
+        const handleBeforeInstallPrompt = (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    }, []);
+
+    const handleInstallClick = async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                setDeferredPrompt(null);
+            }
+        } else {
+            Swal.fire({
+                title: 'Instalación Manual',
+                text: 'Para instalar la app en esta PC o celular: Abre el menú del navegador (⋮ o ⚙️) > Guardar y compartir / Aplicaciones > Instalar página como aplicación',
+                icon: 'info',
+                confirmButtonColor: '#003366',
+                confirmButtonText: 'Entendido'
+            });
+        }
+    };
     return (
         <footer className="w-full bg-[#003366] text-gray-300 py-10 mt-auto border-t border-blue-900 shadow-inner">
             <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -11,6 +42,12 @@ export default function Footer() {
                         <p className="text-sm leading-relaxed text-blue-200 opacity-90 max-w-md">
                             Representando, impulsando y fortaleciendo al comercio formal, los servicios y el turismo a través de servicios de infraestructura, innovación y soporte de calidad para nuestra comunidad empresarial.
                         </p>
+                        <button 
+                            onClick={handleInstallClick} 
+                            className="mt-6 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-5 rounded-lg shadow-md transition-colors flex items-center border border-blue-500"
+                        >
+                            📲 Instalar App / Acceso Directo
+                        </button>
                     </div>
 
                     {/* Información del Sistema */}
