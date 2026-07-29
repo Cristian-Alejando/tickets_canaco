@@ -46,15 +46,15 @@ export default function LoginPage({ onLoginSuccess }) {
       </div>
 
       {/* Encabezado Azul */}
-      <div className="bg-blue-900 h-64 w-full flex items-center justify-center rounded-b-[50px] shadow-lg absolute top-0 left-0 z-0">
-        <div className="text-center pb-10">
+      <div className="bg-blue-900 h-64 w-full flex items-center justify-center rounded-b-[50px] shadow-lg z-0 shrink-0">
+        <div className="text-center">
           <h1 className="text-3xl md:text-4xl font-bold text-white tracking-wide">Administración</h1>
           <p className="text-blue-200 mt-2 tracking-widest uppercase text-xs">Acceso Restringido</p>
         </div>
       </div>
 
       {/* Tarjeta del Formulario animada */}
-      <div className="flex-1 flex items-center justify-center px-4 z-10 pt-20">
+      <div className="flex-1 flex items-center justify-center px-4 z-10 py-10">
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
