@@ -5,17 +5,17 @@ const path = require('path');
 const app = express();
 const PORT = 5173;
 
-// Proxy para las peticiones a la API
-app.use('/api', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  changeOrigin: true,
+// Proxy estándar para peticiones HTTP de la API
+app.use('/api', createProxyMiddleware({ 
+    target: 'http://localhost:3000', 
+    changeOrigin: true 
 }));
 
-// Proxy para sockets
-app.use('/socket.io', createProxyMiddleware({
-  target: 'http://localhost:3000',
-  ws: true,
-  changeOrigin: true,
+// Proxy exclusivo para el tiempo real (WebSockets)
+app.use('/socket.io', createProxyMiddleware({ 
+    target: 'http://localhost:3000', 
+    changeOrigin: true,
+    ws: true 
 }));
 
 // Servir archivos estáticos del frontend
