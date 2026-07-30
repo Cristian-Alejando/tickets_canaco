@@ -128,7 +128,7 @@ export default function UsersList({ users, onUserUpdated }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {users.map(u => {
+            {users?.map(u => {
               const estaActivo = u.activo !== false; 
 
               return (

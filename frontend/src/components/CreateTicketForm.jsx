@@ -285,7 +285,7 @@ export default function CreateTicketForm({
                             <p className="text-sm text-orange-800 font-bold">¿Tu problema es alguno de estos?</p>
                         </div>
                         <ul className="space-y-3">
-                        {sugerencias.map(s => (
+                        {sugerencias?.map(s => (
                             <li key={s.id} className="flex justify-between items-center bg-white p-3 rounded-lg border border-orange-100 shadow-sm hover:border-orange-300 transition-colors">
                             <div className="max-w-[60%]">
                                 <span className="text-sm font-semibold text-gray-800 block truncate">{s.titulo}</span>

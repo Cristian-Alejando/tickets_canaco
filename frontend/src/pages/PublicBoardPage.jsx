@@ -155,7 +155,7 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
                                 </tr>
                             </thead>
                             <tbody className="text-sm">
-                                {ticketsFiltrados.map((t) => (
+                                {ticketsFiltrados?.map((t) => (
                                     /* Hacemos la fila clickable para abrir el modal */
                                     <tr 
                                         key={t.id} 

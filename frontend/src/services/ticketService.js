@@ -1,6 +1,11 @@
 import axios from 'axios';
 import { API_URL } from '../config';
 
+// Crear una instancia de Axios con la URL base
+const api = axios.create({
+  baseURL: API_URL
+});
+
 // 👇 Función para sacar el token de la memoria del navegador 👇
 const getAuthHeaders = () => {
     const token = localStorage.getItem('token_admin_canaco');
@@ -12,7 +17,7 @@ const getAuthHeaders = () => {
 // ==========================================
 export const loginUser = async (credentials) => {
   try {
-    const { data } = await axios.post(`${API_URL}/auth/login`, credentials);
+    const { data } = await api.post('/auth/login', credentials);
     
     if (data.token) {
         localStorage.setItem('token_admin_canaco', data.token);
@@ -26,7 +31,7 @@ export const loginUser = async (credentials) => {
 
 export const registerUser = async (userData) => {
   try {
-    const { data } = await axios.post(`${API_URL}/auth/register`, userData, {
+    const { data } = await api.post('/auth/register', userData, {
       headers: getAuthHeaders()
     });
     return data;
@@ -38,10 +43,10 @@ export const registerUser = async (userData) => {
 
 export const getUsers = async () => {
   try {
-    const { data } = await axios.get(`${API_URL}/auth/users`, {
+    const { data } = await api.get('/auth/users', {
       headers: getAuthHeaders()
     });
-    return data;
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Error getting users:", error);
     return [];
@@ -50,7 +55,7 @@ export const getUsers = async () => {
 
 export const deleteUser = async (id) => {
   try {
-    await axios.delete(`${API_URL}/auth/users/${id}`, {
+    await api.delete(`/auth/users/${id}`, {
       headers: getAuthHeaders()
     });
     return true;
@@ -76,7 +81,8 @@ export const getTickets = async (page = null, limit = null, filters = {}) => {
       if (filters.fechaFin) params.fechaFin = filters.fechaFin;
     }
 
-    const { data } = await axios.get(`${API_URL}/tickets`, { params });
+    const { data } = await api.get('/tickets', { params });
+    // Si paginado, devuelve el objeto { tickets: [], totalPages: x }, sino, el array
     return data;
   } catch (error) {
     console.error("Error getting tickets:", error);
@@ -93,7 +99,7 @@ export const createTicket = async (ticketData) => {
       }
     }
 
-    const { data } = await axios.post(`${API_URL}/tickets`, formData, {
+    const { data } = await api.post('/tickets', formData, {
       headers: getAuthHeaders()
     });
     return { ok: true, id: data.id };
@@ -108,7 +114,7 @@ export const createTicket = async (ticketData) => {
 
 export const updateTicket = async (id, updates) => {
   try {
-    await axios.put(`${API_URL}/tickets/${id}`, updates, {
+    await api.put(`/tickets/${id}`, updates, {
       headers: getAuthHeaders()
     });
     return { ok: true };
@@ -120,7 +126,7 @@ export const updateTicket = async (id, updates) => {
 
 export const voteTicket = async (ticketId, userId) => {
   try {
-    const response = await axios.post(`${API_URL}/tickets/${ticketId}/vote`, { usuario_id: userId }, {
+    const response = await api.post(`/tickets/${ticketId}/vote`, { usuario_id: userId }, {
       headers: getAuthHeaders()
     });
     return { ok: true, data: response.data };
@@ -132,10 +138,10 @@ export const voteTicket = async (ticketId, userId) => {
 
 export const getMyVotes = async () => {
   try {
-    const { data } = await axios.get(`${API_URL}/tickets/mis-votos`, {
+    const { data } = await api.get('/tickets/mis-votos', {
       headers: getAuthHeaders()
     });
-    return data;
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Error getting votes:", error);
     return [];
@@ -144,7 +150,7 @@ export const getMyVotes = async () => {
 
 export const deleteTicket = async (id) => {
   try {
-    const { data } = await axios.delete(`${API_URL}/tickets/${id}`, {
+    const { data } = await api.delete(`/tickets/${id}`, {
       headers: getAuthHeaders()
     });
     return { ok: true, ...data };
@@ -156,10 +162,10 @@ export const deleteTicket = async (id) => {
 
 export const getTicketBitacora = async (id) => {
   try {
-    const { data } = await axios.get(`${API_URL}/tickets/${id}/bitacora`, {
+    const { data } = await api.get(`/tickets/${id}/bitacora`, {
       headers: getAuthHeaders()
     });
-    return data;
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Error al cargar bitácora:", error);
     return [];
@@ -168,7 +174,7 @@ export const getTicketBitacora = async (id) => {
 
 export const reopenTicket = async (id, motivo_reapertura) => {
   try {
-    const { data } = await axios.patch(`${API_URL}/tickets/${id}/reopen`, { motivo_reapertura });
+    const { data } = await api.patch(`/tickets/${id}/reopen`, { motivo_reapertura });
     return { ok: true, ticket: data.ticket };
   } catch (error) {
     console.error("Error reopening ticket:", error);
@@ -181,10 +187,10 @@ export const reopenTicket = async (id, motivo_reapertura) => {
 // ==========================================
 export const searchTickets = async (query, ubicacion) => {
   try {
-    const { data } = await axios.get(`${API_URL}/tickets/buscar`, {
+    const { data } = await api.get('/tickets/buscar', {
       params: { q: query, ubicacion: ubicacion }
     });
-    return data;
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Error buscando tickets sugeridos:", error);
     return [];
