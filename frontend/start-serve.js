@@ -1,11 +1,32 @@
-const { exec } = require('child_process');
+const express = require('express');
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const path = require('path');
 
-// Este script simplemente lanza el comando 'serve' de forma que Windows lo entienda
-const cmd = 'npx serve -s dist -l 5173';
+const app = express();
+const PORT = 5173;
 
-const server = exec(cmd, { windowsHide: true });
+// Proxy para las peticiones a la API
+app.use('/api', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  changeOrigin: true,
+}));
 
-server.stdout.on('data', (data) => console.log(data));
-server.stderr.on('data', (data) => console.error(data));
+// Proxy para sockets
+app.use('/socket.io', createProxyMiddleware({
+  target: 'http://localhost:3000',
+  ws: true,
+  changeOrigin: true,
+}));
 
-console.log('Servidor de producción iniciado en el puerto 5173');
+// Servir archivos estáticos del frontend
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Soporte para React Router (cualquier otra ruta carga index.html)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+// Bind a todas las interfaces
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Servidor de producción iniciado en el puerto ${PORT} en todas las interfaces de red (0.0.0.0)`);
+});
