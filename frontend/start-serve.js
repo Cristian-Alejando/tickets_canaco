@@ -22,7 +22,7 @@ app.use('/socket.io', createProxyMiddleware({
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Soporte para React Router (cualquier otra ruta carga index.html)
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
