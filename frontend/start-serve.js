@@ -8,14 +8,16 @@ const PORT = 5173;
 // Proxy estándar para peticiones HTTP de la API
 app.use('/api', createProxyMiddleware({ 
     target: 'http://localhost:3000', 
-    changeOrigin: true 
+    changeOrigin: true,
+    pathRewrite: { '^/': '/api/' }
 }));
 
 // Proxy exclusivo para el tiempo real (WebSockets)
 app.use('/socket.io', createProxyMiddleware({ 
     target: 'http://localhost:3000', 
     changeOrigin: true,
-    ws: true 
+    ws: true,
+    pathRewrite: { '^/': '/socket.io/' }
 }));
 
 // Servir archivos estáticos del frontend
