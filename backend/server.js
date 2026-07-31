@@ -31,7 +31,7 @@ app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 // CONFIGURACIÓN CORS PARA RED LOCAL (Validación dinámica)
-const localNetworkRegex = /^http:\/\/192\.168\.\d+\.\d+(:5173)?$/;
+const localNetworkRegex = /^http:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+|.*\.local)(:5173)?$/;
 const additionalAllowedOrigins = [
   process.env.FRONTEND_URL,
   "http://mantenimiento.canaco.net:5173",
