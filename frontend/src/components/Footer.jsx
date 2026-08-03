@@ -40,7 +40,7 @@ export default function Footer() {
                             Cámara Nacional de Comercio, Servicios y Turismo (CANACO)
                         </h2>
                         <p className="text-sm leading-relaxed text-blue-200 opacity-90 max-w-md">
-                            Representando, impulsando y fortaleciendo al comercio formal, los servicios y el turismo a través de servicios de infraestructura, innovación y soporte de calidad para nuestra comunidad empresarial.
+                            Representando, impulsando y fortaleciendo al sector comercio, servicios y turismo a través de servicios, infraestructura, innovación y soporte de calidad de nuestra comunidad empresarial.
                         </p>
                         <button 
                             onClick={handleInstallClick} 
@@ -51,7 +51,7 @@ export default function Footer() {
                     </div>
 
                     {/* Información del Sistema */}
-                    <div className="md:text-right flex flex-col justify-between h-full">
+                    <div className="md:text-right flex flex-col justify-start h-full">
                         <div className="mb-4">
                             <h3 className="text-md font-semibold text-blue-100 uppercase tracking-widest text-sm mb-2">
                                 Plataforma Interna
@@ -60,11 +60,15 @@ export default function Footer() {
                                 Sistema Interno de Gestión de Mantenimiento y Reportes
                             </p>
                         </div>
-                        
-                        <div className="text-xs text-blue-400 font-medium">
-                            &copy; 2026 CANACO. Todos los derechos reservados.
-                        </div>
                     </div>
+                </div>
+
+                {/* Pie de página inferior y créditos */}
+                <div className="mt-8 pt-6 border-t border-blue-900/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-blue-300/80">
+                    <p>&copy; 2026 CANACO. Todos los derechos reservados.</p>
+                    <p className="font-medium text-blue-200/90 tracking-wide">
+                        Desarrollado por: Ing. Cristian Alejandro Rodriguez Alvarado
+                    </p>
                 </div>
             </div>
         </footer>

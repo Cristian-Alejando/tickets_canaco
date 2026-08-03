@@ -28,7 +28,21 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
+const os = require('os');
+
 // Bind a todas las interfaces
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor de producción iniciado en el puerto ${PORT} en todas las interfaces de red (0.0.0.0)`);
+  console.log(`\n🚀 Servidor Frontend iniciado en el puerto ${PORT}`);
+  console.log(`\nPuedes acceder a la aplicación desde la red local a través de las siguientes direcciones:`);
+  
+  const networkInterfaces = os.networkInterfaces();
+  for (const interfaceName in networkInterfaces) {
+    const interfaces = networkInterfaces[interfaceName];
+    for (const iface of interfaces) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        console.log(`   ➜  ${interfaceName}: http://${iface.address}:${PORT}`);
+      }
+    }
+  }
+  console.log(`   ➜  Localhost: http://localhost:${PORT}\n`);
 });

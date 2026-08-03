@@ -123,9 +123,23 @@ app.get(/^(?!\/api|\/uploads).*$/, (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
+const os = require('os');
+
 // --- 5. INICIAR SERVIDOR ---
 server.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 Servidor Backend + WebSockets en puerto: ${port}`);
-  console.log(`🌐 Dominio Local API: http://api-mantenimiento.canaco.net:${port}`);
+  console.log(`\n🚀 Servidor Backend + WebSockets en puerto: ${port}`);
   console.log(`🛡️  Infraestructura de red local configurada correctamente.`);
+  console.log(`🌐 Dominio Local API: http://api-mantenimiento.canaco.net:${port}`);
+  
+  console.log(`\nIPs disponibles en la red local para la API:`);
+  const networkInterfaces = os.networkInterfaces();
+  for (const interfaceName in networkInterfaces) {
+    const interfaces = networkInterfaces[interfaceName];
+    for (const iface of interfaces) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        console.log(`   ➜  ${interfaceName}: http://${iface.address}:${port}`);
+      }
+    }
+  }
+  console.log(`   ➜  Localhost: http://localhost:${port}\n`);
 });
