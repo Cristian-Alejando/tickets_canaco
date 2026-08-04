@@ -101,9 +101,11 @@ app.use('/api/', limiter);
 // --- 2. IMPORTAR Y USAR RUTAS (API) ---
 const authRoutes = require('./routes/authRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
+const comentarioRoutes = require('./routes/comentarioRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
+app.use('/api/comentarios', comentarioRoutes);
 
 app.get('/api/test-db', async (req, res) => {
   try {

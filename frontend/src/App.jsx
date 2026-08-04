@@ -24,6 +24,9 @@ import ConfigModal from './components/ConfigModal';
 import UsersList from './components/UsersList';
 import RegisterPage from './pages/RegisterPage';
 import PublicBoardPage from './pages/PublicBoardPage';
+import CommentsBoardPage from './pages/CommentsBoardPage';
+import CommentsHistoryPage from './pages/CommentsHistoryPage';
+import AdminCommentsPage from './pages/AdminCommentsPage';
 import Footer from './components/Footer';
 
 // Servicios
@@ -530,6 +533,12 @@ function App() {
       >
         📜 Reportes
       </button>
+      <button 
+        onClick={() => navigate('/admin/comentarios')} 
+        className={`px-6 py-2 rounded-full font-bold shadow-sm transition ${activo === 'comentarios' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+      >
+        💬 Comentarios
+      </button>
       {(usuario?.rol === 'admin' || usuario?.rol === 'tecnico') && (
         <button 
           onClick={() => navigate('/admin/usuarios')} 
@@ -573,12 +582,20 @@ function App() {
                     <img src="/logo_canaco_oficial.png" alt="Logo" className="h-24 mx-auto mb-4 object-contain" />
                     <h1 className="text-3xl font-bold text-blue-900">Buzón de Mantenimiento</h1>
                     <p className="text-gray-500 mt-2">Reporta incidencias para mejoras de CANACO</p>
-                    <button 
-                      onClick={() => navigate('/tablero')} 
-                      className="mt-6 px-8 py-3 bg-white text-blue-700 font-bold rounded-full shadow border border-blue-100 hover:bg-blue-50 transition flex items-center gap-2 mx-auto"
-                    >
-                      👀 Ver Tablero Público de Reportes
-                    </button>
+                    <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 max-w-xl mx-auto">
+                      <button 
+                        onClick={() => navigate('/tablero')} 
+                        className="w-full sm:w-auto px-6 py-3 bg-white text-blue-700 font-bold rounded-full shadow border border-blue-100 hover:bg-blue-50 transition flex items-center justify-center gap-2"
+                      >
+                        👀 Ver Tablero Público de Reportes
+                      </button>
+                      <button 
+                        onClick={() => navigate('/comentarios')} 
+                        className="w-full sm:w-auto px-6 py-3 bg-white text-blue-700 font-bold rounded-full shadow border border-blue-100 hover:bg-blue-50 transition flex items-center justify-center gap-2"
+                      >
+                        💬 Apartado de comentarios generales
+                      </button>
+                    </div>
                   </div>
                   <CreateTicketForm 
                     onSubmit={handleCreateTicket} 
@@ -607,6 +624,9 @@ function App() {
             handleVotar={handleVotar} 
           />
         } />
+
+        <Route path="/comentarios" element={<CommentsBoardPage />} />
+        <Route path="/comentarios/historial" element={<CommentsHistoryPage />} />
         
         <Route path="/admin" element={
           usuario ? <Navigate to="/admin/dashboard" /> : <LoginPage onLoginSuccess={handleLoginSuccess} />
@@ -913,6 +933,15 @@ function App() {
               <AdminMenu activo="crear" /><div className="max-w-2xl mx-auto">
                 <CreateTicketForm onSubmit={handleCreateTicket} onCancel={() => navigate('/admin/dashboard')} formData={formData} setFormData={setFormData} onSearch={buscarSimilares} sugerencias={sugerencias} onVoteSugerencia={handleVotar} misVotos={misVotos} usuario={usuario} />
               </div>
+            </main>
+          ) : <Navigate to="/admin" />
+        } />
+
+        <Route path="/admin/comentarios" element={
+          usuario ? (
+            <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+              <AdminMenu activo="comentarios" />
+              <AdminCommentsPage />
             </main>
           ) : <Navigate to="/admin" />
         } />

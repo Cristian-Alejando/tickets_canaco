@@ -38,6 +38,14 @@ CREATE TABLE IF NOT EXISTS bitacora_tickets (
     detalles TEXT,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 8. NUEVO: Soporte para Visualizador de Comentarios Generales (100% Anónimo)
+CREATE TABLE IF NOT EXISTS comentarios (
+    id SERIAL PRIMARY KEY,
+    titulo VARCHAR(200) NOT NULL,
+    problematica TEXT NOT NULL,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ---
@@ -101,6 +109,14 @@ CREATE TABLE bitacora_tickets (
     accion VARCHAR(100) NOT NULL,
     detalles TEXT,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- E) NUEVO: Tabla de Comentarios Generales (Visualizador de comentarios anónimo)
+CREATE TABLE comentarios (
+    id SERIAL PRIMARY KEY,
+    titulo VARCHAR(200) NOT NULL,
+    problematica TEXT NOT NULL,
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
