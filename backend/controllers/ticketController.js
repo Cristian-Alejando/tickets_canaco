@@ -136,7 +136,7 @@ const createTicket = async (req, res) => {
                     <table cellpadding="0" cellspacing="0" border="0" style="font-family: 'Century Gothic', Arial, sans-serif; margin-top: 20px;">
                       <tr>
                         <td style="padding-right: 15px; border-right: 1px solid #336699; vertical-align: top;">
-                          <img src="https://i.ibb.co/0yw9rvv8/LOGO-CANACO.png" alt="CANACO Monterrey" width="110" style="display: block;">
+                          <img src="blob:https://outlook.office.com/66d7bf0d-7c56-4dba-8d51-f35c427e6598" alt="CANACO Monterrey" style="max-width: 150px; height: auto;">
                         </td>
                         <td style="padding-left: 15px; vertical-align: top;">
                           <h3 style="margin: 0; font-size: 16px; color: #000; font-weight: bold;">Departamento de Contabilidad</h3>
@@ -390,7 +390,7 @@ const updateTicket = async (req, res) => {
                     <table cellpadding="0" cellspacing="0" border="0" style="font-family: 'Century Gothic', Arial, sans-serif; margin-top: 20px;">
                       <tr>
                         <td style="padding-right: 15px; border-right: 1px solid #336699; vertical-align: top;">
-                          <img src="https://i.ibb.co/0yw9rvv8/LOGO-CANACO.png" alt="CANACO Monterrey" width="110" style="display: block;">
+                          <img src="blob:https://outlook.office.com/66d7bf0d-7c56-4dba-8d51-f35c427e6598" alt="CANACO Monterrey" style="max-width: 150px; height: auto;">
                         </td>
                         <td style="padding-left: 15px; vertical-align: top;">
                           <h3 style="margin: 0; font-size: 16px; color: #000; font-weight: bold;">Departamento de Contabilidad</h3>
@@ -562,7 +562,7 @@ const deleteTicket = async (req, res) => {
                     <table cellpadding="0" cellspacing="0" border="0" style="font-family: 'Century Gothic', Arial, sans-serif; margin-top: 20px;">
                       <tr>
                         <td style="padding-right: 15px; border-right: 1px solid #336699; vertical-align: top;">
-                          <img src="https://i.ibb.co/0yw9rvv8/LOGO-CANACO.png" alt="CANACO Monterrey" width="110" style="display: block;">
+                          <img src="blob:https://outlook.office.com/66d7bf0d-7c56-4dba-8d51-f35c427e6598" alt="CANACO Monterrey" style="max-width: 150px; height: auto;">
                         </td>
                         <td style="padding-left: 15px; vertical-align: top;">
                           <h3 style="margin: 0; font-size: 16px; color: #000; font-weight: bold;">Departamento de Contabilidad</h3>
