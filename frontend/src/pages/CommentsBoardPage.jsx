@@ -59,7 +59,7 @@ export default function CommentsBoardPage() {
               <div className="flex items-center justify-center md:justify-start gap-2">
                 <span className="text-3xl">💬</span>
                 <h1 className="text-3xl font-bold text-blue-900">
-                  Visualizador de comentarios
+                  Visualizador de observaciones
                 </h1>
               </div>
               <p className="text-gray-500 mt-1">
@@ -91,7 +91,7 @@ export default function CommentsBoardPage() {
                   <span>✍️</span> Agregar Nuevo Comentario
                 </h2>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Comparte tus inquietudes o sugerencias generales de forma anónima
+                  Comparte tus observaciones o sugerencias generales de forma anónima
                 </p>
               </div>
               <span className="inline-flex items-center self-start sm:self-auto px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
