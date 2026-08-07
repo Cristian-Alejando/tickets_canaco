@@ -254,8 +254,8 @@ export default function AdminCommentsPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr className="text-gray-600 text-sm">
+            <thead className="bg-blue-50/80 border-b border-blue-100">
+              <tr className="text-blue-900 text-sm">
                 <th className="p-4 font-bold w-24">Folio</th>
                 <th className="p-4 font-bold w-36">Fecha</th>
                 <th className="p-4 font-bold">Título / Comentario</th>

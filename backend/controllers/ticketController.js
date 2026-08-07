@@ -44,8 +44,10 @@ const createTicket = async (req, res) => {
   const descripcionLimpia = purify.sanitize(descripcion);
   const creadorLimpio = creador ? purify.sanitize(creador) : 'Anónimo';
 
-  // Si req.file existe, armamos la ruta completa. Si no, lo dejamos como null.
-  const rutaEvidencia = req.file ? `/uploads/${req.file.filename}` : null;
+  // Si req.file y req.file.filename existen y son válidos, armamos la ruta completa. Si no, lo dejamos como null.
+  const rutaEvidencia = (req.file && req.file.filename && req.file.filename !== 'undefined' && req.file.filename !== 'null') 
+    ? `/uploads/${req.file.filename}` 
+    : null;
 
   try {
     // 👇 PASO A: Validar duplicados si el usuario NO ha forzado el envío 👇

@@ -2,6 +2,13 @@ const router = require('express').Router();
 const multer = require('multer');
 const sharp = require('sharp'); // <-- 1. IMPORTAMOS SHARP (La licuadora de imágenes)
 const path = require('path');
+const fs = require('fs');
+
+// Aseguramos que la carpeta de subidas exista en disco
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // 👇 NUEVO: Importamos a los cadeneros (Middlewares de Seguridad) 👇
 const { verifyToken, requireAdmin, requireAdminOrTech } = require('../middlewares/authMiddleware');
@@ -54,9 +61,13 @@ const optimizarImagen = async (req, res, next) => {
   if (!req.file) return next();
 
   try {
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const filename = `ticket-${uniqueSuffix}.webp`;
-    const filepath = path.join(__dirname, '../uploads', filename);
+    const filepath = path.join(uploadsDir, filename);
 
     await sharp(req.file.buffer)
       .resize({ width: 1000, withoutEnlargement: true }) 
@@ -67,6 +78,7 @@ const optimizarImagen = async (req, res, next) => {
     next(); 
   } catch (error) {
     console.error("❌ Error en Sharp:", error);
+    req.file.filename = null;
     next(); 
   }
 };

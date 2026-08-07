@@ -94,9 +94,6 @@ export default function CommentsBoardPage() {
                   Comparte tus observaciones o sugerencias generales de forma anónima
                 </p>
               </div>
-              <span className="inline-flex items-center self-start sm:self-auto px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-                🔒 100% Anónimo
-              </span>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">

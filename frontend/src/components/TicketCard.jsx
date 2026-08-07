@@ -10,6 +10,38 @@ const cardVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } }
 };
 
+// Helper para construir la URL de la evidencia fotográfica de forma segura
+const getEvidenciaUrl = (evidencia) => {
+  if (!evidencia || typeof evidencia !== 'string') return null;
+  const trimmed = evidencia.trim();
+  if (
+    trimmed === '' || 
+    trimmed === 'undefined' || 
+    trimmed === 'null' || 
+    trimmed.endsWith('/undefined') || 
+    trimmed.endsWith('/null')
+  ) {
+    return null;
+  }
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  const baseApi = import.meta.env.VITE_API_URL || API_URL || '/api';
+  
+  if (trimmed.startsWith('/api/')) {
+    const rootUrl = import.meta.env.VITE_API_URL || '';
+    return `${rootUrl}${trimmed}`;
+  }
+
+  if (trimmed.startsWith('/')) {
+    return `${baseApi}${trimmed}`;
+  }
+
+  return `${baseApi}/uploads/${trimmed}`;
+};
+
 export default function TicketCard({ 
   ticket, 
   usuario, 
@@ -32,15 +64,16 @@ export default function TicketCard({
   const isCreator = userIdentity && (ticket.creador === userIdentity || ticket.nombre_contacto === userIdentity);
   const alreadyVoted = misVotos.includes(ticket.id);
 
+  const fotoEvidencia = getEvidenciaUrl(ticket?.evidencia || ticket?.foto || ticket?.imagen_url || ticket?.imagen);
+
   const handleDeleteClick = () => {
     if (window.confirm(`⚠️ PELIGRO:\n\n¿Estás seguro de que quieres ELIMINAR el ticket "${ticket.titulo}"?\n\nEsta acción es permanente y NO se puede deshacer.`)) {
       onDelete(ticket.id);
     }
   };
 
-  // 👇 FUNCIÓN PARA CARGAR LA LÍNEA DE TIEMPO 👇
   const toggleBitacora = async () => {
-    if (!mostrarBitacora) {
+    if (!mostrarBitacora && bitacoraDatos.length === 0) {
       setCargandoBitacora(true);
       try {
         const datos = await getTicketBitacora(ticket.id);
@@ -82,7 +115,7 @@ export default function TicketCard({
                 <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase ${
                    ticket.estatus === 'abierto' ? 'bg-orange-50 text-orange-600 border border-orange-100' :
                    ticket.estatus === 'en_proceso' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 
-                   'bg-green-100 text-green-600 border-green-100'
+                   'bg-green-100 text-green-600 border border-green-100'
                 }`}>{(ticket.estatus || '').replace('_', ' ')}</span>
                 
                 {ticket.tecnico_nombre && (
@@ -98,21 +131,24 @@ export default function TicketCard({
             <p className="text-gray-600 text-sm mb-4 leading-relaxed">{ticket.descripcion}</p>
             
             {/* SECCIÓN DE EVIDENCIA VISUAL */}
-            {ticket.evidencia && (
+            {fotoEvidencia && (
               <div className="mb-5 bg-gray-50 border border-gray-200 rounded-xl p-3 inline-block">
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1">
                   📸 Evidencia Adjunta:
                 </p>
                 <a 
-                  href={`${API_URL}${ticket.evidencia}`} 
+                  href={fotoEvidencia} 
                   target="_blank" 
                   rel="noopener noreferrer" 
                   className="block overflow-hidden rounded-lg border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all relative group cursor-zoom-in max-w-sm"
                 >
                   <img 
-                    src={`${API_URL}${ticket.evidencia}`} 
+                    src={fotoEvidencia} 
                     alt="Evidencia del reporte" 
                     className="w-full h-auto max-h-48 object-cover group-hover:opacity-90 transition-opacity" 
+                    onError={(e) => {
+                      e.currentTarget.closest('.bg-gray-50')?.remove?.();
+                    }}
                   />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <span className="bg-white text-gray-800 text-xs font-bold px-3 py-1 rounded-full shadow">Ver foto completa</span>

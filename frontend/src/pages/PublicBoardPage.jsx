@@ -53,12 +53,20 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
                     <h1 className="text-3xl font-bold text-blue-900">Tablero de Mantenimiento</h1>
                     <p className="text-gray-500 mt-1">Transparencia y seguimiento de reportes en CANACO</p>
                 </div>
-                <button 
-                    onClick={() => navigate('/')} 
-                    className="bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md hover:bg-blue-800 transition transform hover:scale-105"
-                >
-                    ➕ Nuevo Reporte
-                </button>
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={() => navigate('/')} 
+                        className="bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 px-5 py-2.5 rounded-xl font-bold shadow-sm transition"
+                    >
+                        🏠 Inicio
+                    </button>
+                    <button 
+                        onClick={() => navigate('/')} 
+                        className="bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-md hover:bg-blue-800 transition transform hover:scale-105"
+                    >
+                        ➕ Nuevo Reporte
+                    </button>
+                </div>
             </div>
 
             <div className="flex justify-center md:justify-start mb-6">
@@ -145,7 +153,7 @@ export default function PublicBoardPage({ tickets, misVotos, handleVotar }) {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-gray-50 border-b border-gray-200 text-gray-600 text-sm">
+                                <tr className="bg-blue-50/80 border-b border-blue-100 text-blue-900 text-sm">
                                     <th className="p-4 font-bold">Folio</th>
                                     <th className="p-4 font-bold">Fecha</th>
                                     <th className="p-4 font-bold">Título / Ubicación</th>

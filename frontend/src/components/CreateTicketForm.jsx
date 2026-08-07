@@ -156,7 +156,7 @@ export default function CreateTicketForm({
                 {usuario ? 'Nuevo Reporte Interno' : 'Nuevo Reporte'}
             </h2>
             <p className="text-gray-500">
-                {usuario ? 'Registrando ticket desde el panel.' : 'Describe el problema para que te ayudemos.'}
+                {usuario ? 'Registrando ticket desde el panel.' : 'Describe el detalle para que sea atendido'}
             </p>
         </div>
         
@@ -329,6 +329,9 @@ export default function CreateTicketForm({
                     <option value="Piso 1">Piso 1</option>
                     <option value="Piso 2">Piso 2</option>
                     <option value="Piso 3">Piso 3</option>
+                    <option value="Exterior">Exterior</option>
+                    <option value="Todos los pisos">Todos los pisos</option>
+                    <option value="Autos">Autos</option>
                 </select>
             </div>
 

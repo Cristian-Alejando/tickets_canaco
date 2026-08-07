@@ -93,7 +93,17 @@ app.use(cors(corsOptions));
 // Le decimos a Express que entienda el formato JSON
 app.use(express.json());
 
-app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+const fs = require('fs');
+
+// Aseguramos que la carpeta de subidas exista
+const uploadsPath = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
+
+// Servir archivos estáticos de uploads tanto en /api/uploads como en /uploads
+app.use('/api/uploads', express.static(uploadsPath));
+app.use('/uploads', express.static(uploadsPath));
 
 // Aplicamos el antispam a las rutas de la API
 app.use('/api/', limiter);

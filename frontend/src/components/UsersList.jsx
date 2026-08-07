@@ -120,7 +120,7 @@ export default function UsersList({ users, onUserUpdated }) {
         
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-white text-gray-400 text-xs uppercase tracking-wider border-b">
+            <tr className="bg-blue-50/80 text-blue-900 text-xs font-bold uppercase tracking-wider border-b border-blue-100">
               <th className="p-4 font-medium">Nombre</th>
               <th className="p-4 font-medium">Email</th>
               <th className="p-4 font-medium text-center">Rol / Estatus</th>

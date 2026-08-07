@@ -581,7 +581,7 @@ function App() {
                   <div className="text-center mb-8">
                     <img src="/logo_canaco_oficial.png" alt="Logo" className="h-24 mx-auto mb-4 object-contain" />
                     <h1 className="text-3xl font-bold text-blue-900">Buzón de Mantenimiento</h1>
-                    <p className="text-gray-500 mt-2">Reporta incidencias para mejoras de CANACO</p>
+                    <p className="text-gray-500 mt-2">Reporta incidencias para mejoras del edificio CANACO</p>
                     <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 max-w-xl mx-auto">
                       <button 
                         onClick={() => navigate('/tablero')} 
@@ -593,7 +593,7 @@ function App() {
                         onClick={() => navigate('/comentarios')} 
                         className="w-full sm:w-auto px-6 py-3 bg-white text-blue-700 font-bold rounded-full shadow border border-blue-100 hover:bg-blue-50 transition flex items-center justify-center gap-2"
                       >
-                        💬 Apartado de comentarios generales
+                        💬 Apartado para comentarios generales
                       </button>
                     </div>
                   </div>
@@ -725,8 +725,8 @@ function App() {
 
                             <div className="overflow-x-auto max-h-[400px]">
                                 <table className="w-full text-left border-collapse">
-                                    <thead className="sticky top-0 bg-white shadow-sm z-10">
-                                        <tr className="border-b border-gray-200 text-gray-600 text-sm">
+                                    <thead className="sticky top-0 bg-blue-50/90 shadow-sm z-10">
+                                        <tr className="border-b border-blue-100 text-blue-900 text-sm">
                                             <th className="p-4 font-bold">Folio</th>
                                             <th className="p-4 font-bold">Fecha</th>
                                             <th className="p-4 font-bold">Solicitante</th>
@@ -871,8 +871,8 @@ function App() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
-                      <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr className="text-gray-600 text-sm">
+                      <thead className="bg-blue-50/80 border-b border-blue-100">
+                        <tr className="text-blue-900 text-sm">
                           <th className="p-4 font-bold">Folio</th>
                           <th className="p-4 font-bold">Fecha</th>
                           <th className="p-4 font-bold">Solicitante</th>

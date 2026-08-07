@@ -44,7 +44,7 @@ export default function Footer() {
                         </p>
                         <button 
                             onClick={handleInstallClick} 
-                            className="mt-6 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-5 rounded-lg shadow-md transition-colors flex items-center border border-blue-500"
+                            className="mt-6 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 text-sm font-semibold rounded-lg shadow-sm transition-colors flex items-center border border-blue-500"
                         >
                             📲 Instalar App / Acceso Directo
                         </button>
