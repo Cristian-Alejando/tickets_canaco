@@ -50,6 +50,7 @@ El ecosistema tecnológico ha sido seleccionado bajo criterios de rendimiento, m
 - **Gestión Estricta de Votos (Anti-Redundancia)**: Flujo de trabajo algorítmico que previene la proliferación de incidencias duplicadas. Si la validación heurística detecta similitud semántica y de ubicación, el sistema induce a la adhesión de votos. Este modelo carece de lógica de retroceso (toggle); una vez registrado, el voto es definitivo y auditado en la base de datos (con rechazo estricto HTTP 400 ante duplicidad).
 - **Actualizaciones Optimistas en Interfaz (UI)**: La experiencia del usuario final se optimiza mediante actualizaciones optimistas de estado, reflejando inmediatamente el éxito de las interacciones (como la votación) y ejecutando rutinas de reversión silente en caso de discrepancia o fallo transaccional con el servidor.
 - **Manejo de Evidencias Visuales**: Recepción y procesamiento concurrente de archivos multimedia. Las imágenes son optimizadas dinámicamente antes de su persistencia en el sistema de archivos, asegurando un consumo de ancho de banda marginal durante la recuperación de las mismas.
+- **Renderizado Defensivo de Evidencias**: Implementación de mecanismos de prevención de errores 404 (fallbacks) al renderizar la evidencia fotográfica, garantizando una experiencia de usuario ininterrumpida.
 - **Bitácora de Auditoría Inmutable**: Todo cambio de estado (estatus, prioridades, delegaciones) genera un registro permanente de auditoría, documentando la identidad del operador, la estampa de tiempo y la naturaleza de la modificación.
 
 ## Seguridad e Infraestructura
@@ -87,7 +88,11 @@ La plataforma opera bajo principios de confianza cero (Zero Trust) y mitigación
    cd backend
    npm install
    ```
-   Genere el archivo `.env` tomando como referencia las siguientes variables requeridas:
+   Genere el archivo `.env` copiando el archivo de ejemplo (`.env.example`) como buena práctica de seguridad antes de configurar las variables:
+   ```bash
+   cp .env.example .env
+   ```
+   Asegúrese de configurar las siguientes variables requeridas en su nuevo archivo `.env`:
    ```env
    PORT=3000
    DB_USER=usuario_pg
@@ -125,8 +130,9 @@ cd backend
 pm2 start server.js --name "canaco-backend"
 
 # Servidor de Interfaz de Usuario (UI) Estática
+# Nota: Vite genera los archivos estáticos en la carpeta "dist"
 cd frontend
-pm2 start start-serve.js --name "canaco-frontend"
+pm2 serve dist 8080 --name "canaco-frontend" --spa
 ```
 
 El estado operacional y el archivo de registros se pueden monitorizar empleando los comandos `pm2 status` y `pm2 logs`.
