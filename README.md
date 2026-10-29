@@ -5,7 +5,7 @@
 ![Node.js](https://img.shields.io/badge/Backend-Node.js_Express-339933?logo=nodedotjs&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-4169E1?logo=postgresql&logoColor=white)
 ![Socket.io](https://img.shields.io/badge/Real_Time-Socket.io-010101?logo=socketdotio&logoColor=white)
-![Cloudflare](https://img.shields.io/badge/Infra-Cloudflare_Zero_Trust-F38020?logo=cloudflare&logoColor=white)
+![LAN](https://img.shields.io/badge/Infra-Red_Local_(LAN)-success)
 
 ## Tabla de Contenidos
 
@@ -17,7 +17,7 @@
 - [Requisitos Previos](#requisitos-previos)
 - [Instalación y Configuración](#instalación-y-configuración)
 - [Esquema de Base de Datos](#esquema-de-base-de-datos)
-- [Mantenimiento y Despliegue](#mantenimiento-y-despliegue)
+- [Mantenimiento y Despliegue (Producción)](#mantenimiento-y-despliegue)
 
 ## Descripción General
 
@@ -25,7 +25,9 @@ El presente proyecto constituye el Sistema Integral de Mesa de Ayuda (Helpdesk) 
 
 ## Arquitectura del Sistema
 
-La solución emplea una arquitectura distribuida basada en el modelo cliente-servidor, implementando conexiones persistentes y bidireccionales. El diseño prioriza la alta disponibilidad, la optimización de recursos en el procesamiento de medios y la inmutabilidad de los registros transaccionales.
+La solución emplea una arquitectura distribuida basada en el modelo cliente-servidor, implementando conexiones persistentes y bidireccionales a través de una **Red de Área Local (LAN)** corporativa. El diseño prioriza la alta disponibilidad, la optimización de recursos en el procesamiento de medios y la inmutabilidad de los registros transaccionales.
+
+El sistema está diseñado para operar exclusivamente en el entorno interno de la organización, garantizando la seguridad sin dependencia de túneles externos, y sirviendo los archivos estáticos de la interfaz a través de un gestor de procesos.
 
 ## Stack Tecnológico
 
@@ -33,7 +35,7 @@ El ecosistema tecnológico ha sido seleccionado bajo criterios de rendimiento, m
 
 ### Frontend
 - **Librería Base**: React implementando arquitecturas orientadas a componentes y flujos de estado declarativos.
-- **Herramienta de Construcción**: Vite, empleado para garantizar tiempos de compilación óptimos y un empaquetado eficiente (HMR).
+- **Herramienta de Construcción**: Vite, empleado para garantizar tiempos de compilación óptimos y un empaquetado eficiente para producción.
 - **Estilos**: Tailwind CSS, utilizado para la construcción de una interfaz responsiva, modular y consistente con las directrices de diseño UI/UX.
 - **Visualización de Datos**: Recharts, encargado de la generación y renderizado de gráficos estadísticos asíncronos para los tableros de control directivos (Dashboards).
 
@@ -48,18 +50,17 @@ El ecosistema tecnológico ha sido seleccionado bajo criterios de rendimiento, m
 ## Características Principales
 
 - **Gestión Estricta de Votos (Anti-Redundancia)**: Flujo de trabajo algorítmico que previene la proliferación de incidencias duplicadas. Si la validación heurística detecta similitud semántica y de ubicación, el sistema induce a la adhesión de votos. Este modelo carece de lógica de retroceso (toggle); una vez registrado, el voto es definitivo y auditado en la base de datos (con rechazo estricto HTTP 400 ante duplicidad).
-- **Actualizaciones Optimistas en Interfaz (UI)**: La experiencia del usuario final se optimiza mediante actualizaciones optimistas de estado, reflejando inmediatamente el éxito de las interacciones (como la votación) y ejecutando rutinas de reversión silente en caso de discrepancia o fallo transaccional con el servidor.
-- **Manejo de Evidencias Visuales**: Recepción y procesamiento concurrente de archivos multimedia. Las imágenes son optimizadas dinámicamente antes de su persistencia en el sistema de archivos, asegurando un consumo de ancho de banda marginal durante la recuperación de las mismas.
-- **Renderizado Defensivo de Evidencias**: Implementación de mecanismos de prevención de errores 404 (fallbacks) al renderizar la evidencia fotográfica, garantizando una experiencia de usuario ininterrumpida.
-- **Bitácora de Auditoría Inmutable**: Todo cambio de estado (estatus, prioridades, delegaciones) genera un registro permanente de auditoría, documentando la identidad del operador, la estampa de tiempo y la naturaleza de la modificación.
+- **Actualizaciones Optimistas en Interfaz (UI)**: La experiencia del usuario final se optimiza mediante actualizaciones optimistas de estado, reflejando inmediatamente el éxito de las interacciones y ejecutando rutinas de reversión silente en caso de discrepancia o fallo transaccional con el servidor.
+- **Manejo de Evidencias Visuales**: Recepción y procesamiento concurrente de archivos multimedia. Las imágenes son optimizadas dinámicamente antes de su persistencia, asegurando un consumo de ancho de banda marginal durante la recuperación.
+- **Bitácora de Auditoría Inmutable**: Todo cambio de estado genera un registro permanente de auditoría, documentando la identidad del operador, la estampa de tiempo y la naturaleza de la modificación.
 
 ## Seguridad e Infraestructura
 
-La plataforma opera bajo principios de confianza cero (Zero Trust) y mitigación proactiva de amenazas:
+La plataforma opera bajo un esquema de seguridad interna (LAN) y mitigación proactiva de amenazas:
 
 - **Autenticación Basada en Tokens**: Control de acceso granular mediante JSON Web Tokens (JWT). La integridad y vigencia de cada transacción se verifica en los middlewares protectores antes de conceder acceso a los controladores.
-- **Limitación de Peticiones (Rate Limit)**: Implementación de `express-rate-limit` mitigando activamente ataques de Denegación de Servicio (DDoS) y previniendo el abuso de los puntos de conexión públicos.
-- **Despliegue Aislado (Cloudflare Zero Trust)**: La infraestructura se expone al exterior de manera segura utilizando túneles de Cloudflare. Esta configuración anula la necesidad de exponer puertos en los cortafuegos físicos y cifra el tráfico de extremo a extremo (E2EE), mitigando ataques volumétricos y escaneos de vulnerabilidades.
+- **Limitación de Peticiones (Rate Limit)**: Implementación de `express-rate-limit` mitigando activamente ataques de Denegación de Servicio (DDoS) internos y previniendo el abuso de los puntos de conexión.
+- **Despliegue en Red Local (LAN)**: La infraestructura opera de manera aislada dentro de la red interna del edificio, sin exposición a Internet. El tráfico está protegido por el cortafuegos corporativo, y la comunicación entre Frontend y Backend se gestiona mediante políticas estrictas de CORS.
 - **Protección contra XSS**: Esterilización rigurosa del texto entrante empleando librerías especializadas (DOMPurify con JSDOM) para la limpieza profunda de vectores de ataque.
 
 ## Requisitos Previos
@@ -67,7 +68,7 @@ La plataforma opera bajo principios de confianza cero (Zero Trust) y mitigación
 - **Node.js**: Versión 18.0 o superior.
 - **Gestor de Paquetes**: NPM (incluido con Node.js).
 - **Base de Datos**: PostgreSQL 14 o superior.
-- **Sistema Operativo**: Compatible con distribuciones Linux, macOS y Windows Server.
+- **Sistema Operativo**: Windows Server / Linux.
 
 ## Instalación y Configuración
 
@@ -78,7 +79,7 @@ La plataforma opera bajo principios de confianza cero (Zero Trust) y mitigación
    ```
 
 2. **Inicialización de la Base de Datos**
-   Configure su instancia de PostgreSQL y proceda con la ejecución de los scripts DDL proveídos en el directorio de inicialización.
+   Configure su instancia de PostgreSQL y proceda con la ejecución de los scripts DDL.
    ```sql
    CREATE DATABASE tickets_canaco;
    ```
@@ -88,11 +89,7 @@ La plataforma opera bajo principios de confianza cero (Zero Trust) y mitigación
    cd backend
    npm install
    ```
-   Genere el archivo `.env` copiando el archivo de ejemplo (`.env.example`) como buena práctica de seguridad antes de configurar las variables:
-   ```bash
-   cp .env.example .env
-   ```
-   Asegúrese de configurar las siguientes variables requeridas en su nuevo archivo `.env`:
+   Genere el archivo `.env` basado en el ejemplo y configure las variables:
    ```env
    PORT=3000
    DB_USER=usuario_pg
@@ -122,17 +119,24 @@ La estructura relacional incluye, entre otras, las siguientes entidades fundamen
 
 ## Mantenimiento y Despliegue
 
-Para el entorno de producción, es imperativo mantener los servicios ejecutándose en segundo plano. Se recomienda el uso de un gestor de procesos avanzado como PM2.
+Para el entorno de producción local (LAN), es imperativo mantener los servicios ejecutándose en segundo plano utilizando **PM2**.
 
 ```bash
-# Servidor de Interfaz de Programación de Aplicaciones (API)
+# 1. Servidor de API (Backend)
 cd backend
 pm2 start server.js --name "canaco-backend"
 
-# Servidor de Interfaz de Usuario (UI) Estática
-# Nota: Vite genera los archivos estáticos en la carpeta "dist"
+# 2. Servidor de Interfaz de Usuario Estática (Frontend)
+# Nota: Vite genera los archivos estáticos en la carpeta "dist". 
+# PM2 los sirve directamente en el puerto 5173.
 cd frontend
-pm2 serve dist 8080 --name "canaco-frontend" --spa
+pm2 serve dist 5173 --name "canaco-frontend" --spa
+
+# 3. Guardar el estado para reinicios automáticos
+pm2 save
 ```
 
-El estado operacional y el archivo de registros se pueden monitorizar empleando los comandos `pm2 status` y `pm2 logs`.
+**Monitoreo:**
+- `pm2 status`: Verifica que ambos servicios estén "online".
+- `pm2 logs`: Monitorea los errores en tiempo real.
+- La aplicación es accesible desde cualquier PC en la red local ingresando a `http://<IP_DEL_SERVIDOR>:5173`.
