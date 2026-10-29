@@ -31,7 +31,7 @@ const getEvidenciaUrl = (evidencia) => {
   const baseApi = import.meta.env.VITE_API_URL || API_URL || '/api';
   
   if (trimmed.startsWith('/api/')) {
-    const rootUrl = import.meta.env.VITE_API_URL || '';
+    const rootUrl = import.meta.env.VITE_API_URL || (typeof API_URL === 'string' ? API_URL.replace(/\/api\/?$/, '') : '');
     return `${rootUrl}${trimmed}`;
   }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { registerUser, deleteUser } from '../services/ticketService';
+import { registerUser, deleteUser, resetUserPassword } from '../services/ticketService';
 import { toast } from 'react-hot-toast'; // <-- NUEVO
 import Swal from 'sweetalert2'; // <-- NUEVO
 
@@ -71,6 +71,35 @@ export default function UsersList({ users, onUserUpdated }) {
         } else {
             toast.error(`Error al ${accion.toLowerCase()} al usuario.`); // <-- NUEVO
         }
+    }
+  };
+
+  const handleResetPassword = async (id, nombre) => {
+    const { value: newPassword } = await Swal.fire({
+      title: 'Restablecer Contraseña',
+      text: `Ingresa la nueva contraseña para "${nombre}":`,
+      input: 'password',
+      inputPlaceholder: 'Mínimo 6 caracteres',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b', // Ámbar/Naranja
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Restablecer',
+      cancelButtonText: 'Cancelar',
+      customClass: { popup: 'rounded-2xl' },
+      inputValidator: (value) => {
+        if (!value || value.length < 6) {
+          return 'La contraseña debe tener al menos 6 caracteres';
+        }
+      }
+    });
+
+    if (newPassword) {
+      const res = await resetUserPassword(id, newPassword);
+      if (res.ok) {
+        toast.success(`Contraseña de ${nombre} restablecida con éxito`);
+      } else {
+        toast.error(`Error: ${res.error}`);
+      }
     }
   };
 
@@ -154,17 +183,26 @@ export default function UsersList({ users, onUserUpdated }) {
                   </td>
 
                   <td className="p-4 text-right">
-                    <button 
-                        onClick={() => handleToggleStatus(u.id, u.nombre, estaActivo)}
-                        className={`font-bold text-sm transition-colors px-3 py-1 rounded border border-transparent 
-                            ${estaActivo 
-                                ? 'text-gray-400 hover:text-red-600 hover:bg-red-50 hover:border-red-100' 
-                                : 'text-green-600 hover:text-green-800 hover:bg-green-50 hover:border-green-200 bg-white border-green-100 shadow-sm'
-                            }`}
-                        title={estaActivo ? "Desactivar acceso" : "Reactivar acceso"}
-                    >
-                        {estaActivo ? '🚫 Desactivar' : '♻️ Reactivar'}
-                    </button>
+                    <div className="flex justify-end gap-2">
+                        <button 
+                            onClick={() => handleResetPassword(u.id, u.nombre)}
+                            className="font-bold text-sm transition-colors px-3 py-1 rounded border border-yellow-100 bg-white text-yellow-600 hover:text-yellow-800 hover:bg-yellow-50 shadow-sm"
+                            title="Restablecer Contraseña"
+                        >
+                            🔑 Reset
+                        </button>
+                        <button 
+                            onClick={() => handleToggleStatus(u.id, u.nombre, estaActivo)}
+                            className={`font-bold text-sm transition-colors px-3 py-1 rounded border border-transparent 
+                                ${estaActivo 
+                                    ? 'text-gray-400 hover:text-red-600 hover:bg-red-50 hover:border-red-100' 
+                                    : 'text-green-600 hover:text-green-800 hover:bg-green-50 hover:border-green-200 bg-white border-green-100 shadow-sm'
+                                }`}
+                            title={estaActivo ? "Desactivar acceso" : "Reactivar acceso"}
+                        >
+                            {estaActivo ? '🚫 Desactivar' : '♻️ Reactivar'}
+                        </button>
+                    </div>
                   </td>
                 </tr>
               );

@@ -65,6 +65,18 @@ export const deleteUser = async (id) => {
   }
 };
 
+export const resetUserPassword = async (id, newPassword) => {
+  try {
+    const { data } = await api.put(`/auth/users/${id}/reset-password`, { password: newPassword }, {
+      headers: getAuthHeaders()
+    });
+    return { ok: true, data };
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    return { ok: false, error: error.response?.data?.error || "Error de conexión" };
+  }
+};
+
 // ==========================================
 // 2. GESTIÓN DE TICKETS
 // ==========================================

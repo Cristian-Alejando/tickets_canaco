@@ -581,7 +581,7 @@ function App() {
                   <div className="text-center mb-8">
                     <img src="/logo_canaco_oficial.png" alt="Logo" className="h-24 mx-auto mb-4 object-contain" />
                     <h1 className="text-3xl font-bold text-blue-900">Buzón de Mantenimiento</h1>
-                    <p className="text-gray-500 mt-2">Reporta incidencias para mejoras del edificio CANACO</p>
+                    <p className="text-gray-500 mt-2">Reporta incidencias para mejoras del entorno CANACO</p>
                     <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 max-w-xl mx-auto">
                       <button 
                         onClick={() => navigate('/tablero')} 

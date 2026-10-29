@@ -36,7 +36,8 @@ export default function AdminCommentsPage() {
 
     // Conexión WebSocket para recibir comentarios nuevos y eliminaciones en tiempo real
     const socket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      withCredentials: true
     });
 
     socket.on('comentario_creado', (nuevoComentario) => {

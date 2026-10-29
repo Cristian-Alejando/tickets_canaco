@@ -33,9 +33,10 @@ const server = http.createServer(app);
 // CONFIGURACIÓN CORS PARA RED LOCAL (Validación dinámica)
 const localNetworkRegex = /^http:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+|.*\.local)(:5173)?$/;
 const additionalAllowedOrigins = [
+  "http://192.168.2.200:5173",
+  "http://localhost:5173",
   process.env.FRONTEND_URL,
   "http://mantenimiento.canaco.net:5173",
-  "http://localhost:5173",
 ].filter(Boolean);
 
 const corsOptions = {
@@ -55,7 +56,11 @@ const corsOptions = {
 
 // Configuramos Socket.io con las reglas de CORS locales
 const io = new Server(server, {
-  cors: corsOptions
+  cors: {
+    origin: ["http://192.168.2.200:5173", "http://localhost:5173"],
+    methods: ["GET", "POST"],
+    credentials: true
+  }
 });
 
 // Guardamos 'io' en la app de Express para poder usarlo en ticketController.js 

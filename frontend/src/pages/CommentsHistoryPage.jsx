@@ -37,7 +37,8 @@ export default function CommentsHistoryPage() {
 
     // Conexión WebSocket para tiempo real
     const socket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      withCredentials: true
     });
 
     socket.on('comentario_creado', (nuevoComentario) => {

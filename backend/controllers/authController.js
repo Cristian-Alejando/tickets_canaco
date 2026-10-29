@@ -139,9 +139,41 @@ const deleteUser = async (req, res) => {
   }
 };
 
+// ==========================================
+// 5. RESTABLECER CONTRASEÑA (Por Administrador)
+// ==========================================
+const resetPassword = async (req, res) => {
+  const { id } = req.params;
+  const { password } = req.body;
+
+  try {
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const result = await pool.query(
+      'UPDATE usuarios SET password = $1 WHERE id = $2 RETURNING id, nombre',
+      [hashedPassword, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    res.json({ message: 'Contraseña actualizada correctamente', user: result.rows[0] });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Error en el servidor al restablecer contraseña' });
+  }
+};
+
 module.exports = {
   register,
   login,
   getUsers,
-  deleteUser
+  deleteUser,
+  resetPassword
 };
